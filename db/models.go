@@ -6,12 +6,29 @@ package db
 
 import (
 	"database/sql"
+	"time"
 )
 
+type Categorium struct {
+	IDCategoria int32
+	Nombre      string
+	PadreID     sql.NullInt32
+}
+
+type MovimientoStock struct {
+	IDMovimiento int32
+	ProductoID   int32
+	Tipo         string
+	Cantidad     int32
+	Motivo       string
+	Fecha        time.Time
+}
+
 type Producto struct {
-	ID          int32
+	IDProducto  int32
 	Nombre      string
 	Descripcion sql.NullString
 	Precio      string
 	Stock       int32
+	IDCategoria sql.NullInt32
 }
