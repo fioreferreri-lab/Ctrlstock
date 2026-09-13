@@ -21,7 +21,7 @@ El sistema está construido utilizando un stack tecnológico moderno, ligero y a
 
 Para poder ejecutar la automatización, persistencia, compilación y testeo del proyecto, es necesario contar con las siguientes herramientas instaladas en el sistema operativo:
 
-1.  **Go:** Versión `>= 1.25.0`.
+1.  **Go:** Versión `>= 1.22.2`.
 2.  **Docker y Docker Compose:** Indispensables para levantar el contenedor con la instancia de PostgreSQL.
 3.  **Make:** Utilizado para ejecutar las recetas de automatización de pruebas y flujos de trabajo.
 4.  **SQLC:** Utilizado para la generación automática de código Go a partir de las consultas SQL definidas para PostgreSQL.
