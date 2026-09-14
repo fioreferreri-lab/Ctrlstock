@@ -9,7 +9,7 @@ all: test
 
 generate:
 	@echo "-> Generando código con sqlc..."
-	@sqlc generate
+	@~/go/bin/sqlc generate
 
 build: generate
 	@echo "-> Compilando..."
