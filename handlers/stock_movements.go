@@ -12,8 +12,20 @@ import (
 
 // Lista global de movimientos en memoria
 var movimientos = []logic.Stockmovement{
-	{IDMovimiento: 1, Tipo: "INGRESO", Cantidad: 50},
-	{IDMovimiento: 2, Tipo: "EGRESO", Cantidad: 10},
+	{
+		IDMovimiento: 1,
+		ProductoID:   1,
+		Tipo:         "INGRESO",
+		Cantidad:     50,
+		Motivo:       "Carga inicial de inventario",
+	},
+	{
+		IDMovimiento: 2,
+		ProductoID:   1,
+		Tipo:         "EGRESO",
+		Cantidad:     10,
+		Motivo:       "Venta mostrador",
+	},
 }
 
 // MovimientosHandler maneja la colección (/movimientos) -> GET (listar) y POST (crear)
