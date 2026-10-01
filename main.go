@@ -4,14 +4,16 @@ import (
 	"database/sql"
 	"fmt"
 	"log"
+	"net/http"
 
-	db "sistema_stock/db" // Apuntamos a la carpeta exacta donde están los archivos de sqlc
+	_ "github.com/lib/pq" // Driver de PostgreSQL necesario para database/sql
 
-	_ "github.com/lib/pq" // Driver de conexión
+	"ctrlstock/db"       // Paquete generado por sqlc
+	"ctrlstock/handlers" // Paquete de manejadores HTTP
 )
 
 func main() {
-	// 1. Abrimos la conexión
+	// 1. Conexión a la base de datos PostgreSQL
 	dsn := "postgres://user:password@localhost:5432/stockapp?sslmode=disable"
 	conn, err := sql.Open("postgres", dsn)
 	if err != nil {
@@ -19,15 +21,22 @@ func main() {
 	}
 	defer conn.Close()
 
-	// Verificamos que Docker y PostgreSQL estén respondiendo
+	// Verificamos que PostgreSQL/Docker responda
 	if err := conn.Ping(); err != nil {
-		log.Fatal("La base no responde: ", err)
+		log.Fatal("La base de datos no responde: ", err)
 	}
-	fmt.Println("¡Conexión exitosa a PostgreSQL! 🎉")
+	fmt.Println("¡Conexión exitosa a PostgreSQL!")
 
-	// 2. Inicializamos sqlc pasándole la conexión para dejar todo listo para el próximo práctico
-	// Usamos "_" para instanciar el motor sin que Go tire error de "variable no usada"
-	_ = db.New(conn)
+	// 2. Inicialización de sqlc
+	queries := db.New(conn)
+	_ = queries // Evita el error 'declared and not used' mientras no se use en los handlers
+	fmt.Println("Paquete de base de datos (db) inicializado y listo para usar.")
 
-	fmt.Println("✅ Paquete de base de datos (db) inicializado y listo para usar.")
+	// 3. Configuración del ruteador HTTP
+	http.HandleFunc("/categories", handlers.CategoriesHandler)
+	http.HandleFunc("/categories/", handlers.CategoryHandler)
+
+	// 4. Inicio del servidor HTTP
+	fmt.Println("Servidor de Categorías corriendo en http://localhost:8080...")
+	log.Fatal(http.ListenAndServe(":8080", nil))
 }

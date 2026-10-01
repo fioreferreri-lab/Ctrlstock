@@ -135,9 +135,7 @@ SELECT id_categoria, nombre, padre_id FROM categoria
 WHERE id_categoria = $1
 `
 
-// ============================================================================
 // CATEGORIA
-// ============================================================================
 func (q *Queries) GetCategoriaByID(ctx context.Context, idCategoria int32) (Categorium, error) {
 	row := q.db.QueryRowContext(ctx, getCategoriaByID, idCategoria)
 	var i Categorium
@@ -151,9 +149,7 @@ SELECT id_movimiento, producto_id, tipo, cantidad, motivo, fecha FROM movimiento
 WHERE id_movimiento = $1
 `
 
-// ============================================================================
 // MOVIMIENTO_STOCK
-// ============================================================================
 func (q *Queries) GetMovimientoByID(ctx context.Context, idMovimiento int32) (MovimientoStock, error) {
 	row := q.db.QueryRowContext(ctx, getMovimientoByID, idMovimiento)
 	var i MovimientoStock
@@ -174,9 +170,7 @@ SELECT id_producto, nombre, descripcion, precio, stock, id_categoria FROM produc
 WHERE id_producto = $1
 `
 
-// ============================================================================
 // PRODUCTO
-// ============================================================================
 func (q *Queries) GetProductoByID(ctx context.Context, idProducto int32) (Producto, error) {
 	row := q.db.QueryRowContext(ctx, getProductoByID, idProducto)
 	var i Producto

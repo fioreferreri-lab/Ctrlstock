@@ -28,9 +28,8 @@ func TestSistema_CRUD_ValidAndInvalid(t *testing.T) {
 	_ = queries.DeleteProducto(ctx, prodID)
 	// (Nota: Si tuvieras DeleteCategoria lo limpiarías acá también)
 
-	// =========================================================================
 	// 1. CATEGORÍA (Requisito previo para el producto)
-	// =========================================================================
+
 	// Nota: Como no pasaste el query de categoría en el snippet, asumimos inserción directa o la creamos por SQL plano si fuera necesario,
 	// pero para este test insertamos una categoría base directamente vía SQL para cumplir la FK del producto.
 	_, err = dbConn.ExecContext(ctx, "INSERT INTO categoria (id_categoria, nombre, padre_id) VALUES ($1, $2, NULL) ON CONFLICT (id_categoria) DO NOTHING", catID, "Accesorios")
@@ -38,9 +37,7 @@ func TestSistema_CRUD_ValidAndInvalid(t *testing.T) {
 		t.Fatalf("Error al preparar la categoría de prueba: %v", err)
 	}
 
-	// =========================================================================
 	// 2. PRODUCTO - CASOS VÁLIDOS
-	// =========================================================================
 	t.Run("Validar Creación de Producto", func(t *testing.T) {
 		params := CreateProductoParams{
 			IDProducto:  prodID,
@@ -86,9 +83,7 @@ func TestSistema_CRUD_ValidAndInvalid(t *testing.T) {
 		}
 	})
 
-	// =========================================================================
 	// 3. PRODUCTO - CASOS INVÁLIDOS
-	// =========================================================================
 	t.Run("Caso Inválido - Obtener Producto Inexistente", func(t *testing.T) {
 		var idInvalido int32 = 99999
 		_, err := queries.GetProductoByID(ctx, idInvalido)
@@ -113,9 +108,7 @@ func TestSistema_CRUD_ValidAndInvalid(t *testing.T) {
 		}
 	})
 
-	// =========================================================================
 	// 4. MOVIMIENTO DE STOCK - CASOS VÁLIDOS E INVÁLIDOS
-	// =========================================================================
 	t.Run("Validar Creación de Movimiento de Stock", func(t *testing.T) {
 		paramsMov := CreateMovimientoParams{
 			IDMovimiento: movID,
@@ -149,9 +142,7 @@ func TestSistema_CRUD_ValidAndInvalid(t *testing.T) {
 		}
 	})
 
-	// =========================================================================
 	// 5. LIMPIEZA / DELETE
-	// =========================================================================
 	t.Run("Validar Eliminación de Movimiento y Producto", func(t *testing.T) {
 		err := queries.DeleteMovimiento(ctx, movID)
 		if err != nil {

@@ -1,4 +1,4 @@
-module sistema_stock
+module ctrlstock
 
 go 1.22.2
 

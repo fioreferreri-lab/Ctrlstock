@@ -1,6 +1,4 @@
--- ============================================================================
 -- CATEGORIA
--- ============================================================================
 
 -- name: GetCategoriaByID :one
 SELECT * FROM categoria 
@@ -34,10 +32,7 @@ WHERE id_categoria = $3;
 DELETE FROM categoria 
 WHERE id_categoria = $1;
 
-
--- ============================================================================
 -- PRODUCTO
--- ============================================================================
 
 -- name: GetProductoByID :one
 SELECT * FROM producto 
@@ -62,9 +57,7 @@ DELETE FROM producto
 WHERE id_producto = $1;
 
 
--- ============================================================================
 -- MOVIMIENTO_STOCK
--- ============================================================================
 
 -- name: GetMovimientoByID :one
 SELECT * FROM movimiento_stock 
