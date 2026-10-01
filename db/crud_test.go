@@ -8,9 +8,7 @@ import (
 	_ "github.com/lib/pq"
 )
 
-// ---------------------------------------------------------------------------
 // Helpers de conexión y datos de prueba
-// ---------------------------------------------------------------------------
 
 func newTestQueries(t *testing.T) (*Queries, context.Context) {
 	t.Helper()
@@ -24,7 +22,7 @@ func newTestQueries(t *testing.T) (*Queries, context.Context) {
 
 // crea una categoría de prueba usando la función de sqlc (no SQL a mano)
 // y la borra automáticamente al terminar el test.
-func createTestCategoria(t *testing.T, q *Queries, ctx context.Context, id int32) Categoria {
+func createTestCategoria(t *testing.T, q *Queries, ctx context.Context, id int32) Categorium {
 	t.Helper()
 	cat, err := q.CreateCategoria(ctx, CreateCategoriaParams{
 		IDCategoria: id,
@@ -56,9 +54,7 @@ func createTestProducto(t *testing.T, q *Queries, ctx context.Context, id, catID
 	return p
 }
 
-// ---------------------------------------------------------------------------
 // PRODUCTO
-// ---------------------------------------------------------------------------
 
 func TestCreateProducto(t *testing.T) {
 	q, ctx := newTestQueries(t)
@@ -163,9 +159,7 @@ func TestDeleteProducto(t *testing.T) {
 	}
 }
 
-// ---------------------------------------------------------------------------
 // MOVIMIENTO_STOCK
-// ---------------------------------------------------------------------------
 
 func TestCreateMovimiento(t *testing.T) {
 	q, ctx := newTestQueries(t)
