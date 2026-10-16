@@ -1,165 +1,156 @@
 package handlers
 
 import (
+	"database/sql"
 	"encoding/json"
 	"errors"
 	"net/http"
 	"strconv"
 	"strings"
 
+	db "ctrlstock/db"
 	"ctrlstock/logic"
 )
 
-// Lista global de categorías en memoria (Estilo Ejercicio 3: sin Mutex)
-var categories = []logic.Category{
-	{IDCat: 1, Nombre: "Electrónica", PadreID: nil},
-	{IDCat: 2, Nombre: "Computadoras", PadreID: intPtr(1)},
+type CategoriaInput struct {
+	Nombre  string `json:"nombre"`
+	PadreID *int32 `json:"padre_id,omitempty"`
 }
 
-// Función auxiliar para crear punteros a int en la lista de prueba inicial
-func intPtr(i int) *int { return &i }
+func (s *Server) CategoriasHandler(w http.ResponseWriter, r *http.Request) {
+	path := strings.TrimPrefix(r.URL.Path, "/categoria")
+	path = strings.Trim(path, "/")
 
-// CategoriesHandler maneja la colección (/categories) -> GET (listar) y POST (crear)
-func CategoriesHandler(w http.ResponseWriter, r *http.Request) {
-	switch r.Method {
-	case http.MethodGet:
-		getCategories(w, r)
-	case http.MethodPost:
-		createCategory(w, r)
-	default:
-		http.Error(w, "Método no permitido", http.StatusMethodNotAllowed)
-	}
-}
-
-// CategoryHandler maneja un recurso individual (/categories/{id}) -> GET, PUT, DELETE
-func CategoryHandler(w http.ResponseWriter, r *http.Request) {
-	// Extraer el ID desde la URL (ejemplo: "/categories/2")
-	parts := strings.Split(strings.Trim(r.URL.Path, "/"), "/")
-	if len(parts) != 2 {
-		http.Error(w, "URL inválida", http.StatusBadRequest)
+	if path == "" {
+		switch r.Method {
+		case http.MethodGet:
+			s.listCategorias(w, r)
+		case http.MethodPost:
+			s.createCategoria(w, r)
+		default:
+			http.Error(w, "Método no permitido", http.StatusMethodNotAllowed)
+		}
 		return
 	}
 
-	id, err := strconv.Atoi(parts[1])
-	if err != nil || id <= 0 {
+	if strings.Contains(path, "/") {
+		http.Error(w, "Ruta no encontrada", http.StatusNotFound)
+		return
+	}
+
+	id, err := strconv.Atoi(path)
+	if err != nil {
 		http.Error(w, "ID de categoría inválido", http.StatusBadRequest)
 		return
 	}
 
 	switch r.Method {
 	case http.MethodGet:
-		getCategory(w, r, id)
+		s.getCategoria(w, r, int32(id))
 	case http.MethodPut:
-		updateCategory(w, r, id)
+		s.updateCategoria(w, r, int32(id))
 	case http.MethodDelete:
-		deleteCategory(w, r, id)
+		s.deleteCategoria(w, r, int32(id))
 	default:
 		http.Error(w, "Método no permitido", http.StatusMethodNotAllowed)
 	}
 }
 
-// Operaciones CRUD
-
-// GET /categories - Listar todas las categorías
-func getCategories(w http.ResponseWriter, r *http.Request) {
+func (s *Server) listCategorias(w http.ResponseWriter, r *http.Request) {
+	lista, err := s.Queries.ListCategorias(r.Context())
+	if err != nil {
+		http.Error(w, err.Error(), http.StatusInternalServerError)
+		return
+	}
+	if lista == nil {
+		lista = []db.Categorium{}
+	}
 	w.Header().Set("Content-Type", "application/json")
-	w.WriteHeader(http.StatusOK)
-	json.NewEncoder(w).Encode(categories)
+	json.NewEncoder(w).Encode(lista)
 }
 
-// POST /categories - Crear una nueva categoría
-func createCategory(w http.ResponseWriter, r *http.Request) {
-	var newCat logic.Category
-	if err := json.NewDecoder(r.Body).Decode(&newCat); err != nil {
+func (s *Server) createCategoria(w http.ResponseWriter, r *http.Request) {
+	var in CategoriaInput
+	if err := json.NewDecoder(r.Body).Decode(&in); err != nil {
 		http.Error(w, "JSON inválido: "+err.Error(), http.StatusBadRequest)
 		return
 	}
 
-	if err := logic.ValidateCategory(newCat); err != nil {
+	nombre := strings.TrimSpace(in.Nombre)
+	if err := logic.ValidateCategoria(nombre); err != nil {
 		http.Error(w, err.Error(), http.StatusBadRequest)
 		return
 	}
 
-	newCat.IDCat = len(categories) + 1
-	categories = append(categories, newCat)
+	c, err := s.Queries.CreateCategoria(r.Context(), db.CreateCategoriaParams{
+		Nombre:  nombre,
+		PadreID: toNullInt32(in.PadreID),
+	})
+	if err != nil {
+		http.Error(w, err.Error(), http.StatusInternalServerError)
+		return
+	}
 
 	w.Header().Set("Content-Type", "application/json")
 	w.WriteHeader(http.StatusCreated)
-	json.NewEncoder(w).Encode(newCat)
+	json.NewEncoder(w).Encode(c)
 }
 
-// GET /categories/{id} - Obtener una categoría específica por ID
-func getCategory(w http.ResponseWriter, r *http.Request, id int) {
-	cat, err := findCategoryByID(id)
+func (s *Server) getCategoria(w http.ResponseWriter, r *http.Request, id int32) {
+	c, err := s.Queries.GetCategoriaByID(r.Context(), id)
 	if err != nil {
-		http.Error(w, err.Error(), http.StatusNotFound)
+		if errors.Is(err, sql.ErrNoRows) {
+			http.Error(w, "Categoría no encontrada", http.StatusNotFound)
+			return
+		}
+		http.Error(w, err.Error(), http.StatusInternalServerError)
 		return
 	}
-
 	w.Header().Set("Content-Type", "application/json")
-	w.WriteHeader(http.StatusOK)
-	json.NewEncoder(w).Encode(cat)
+	json.NewEncoder(w).Encode(c)
 }
 
-// PUT /categories/{id} - Actualizar una categoría existente
-func updateCategory(w http.ResponseWriter, r *http.Request, id int) {
-	index, err := findCategoryIndexByID(id)
-	if err != nil {
-		http.Error(w, err.Error(), http.StatusNotFound)
-		return
-	}
-
-	var updatedCat logic.Category
-	if err := json.NewDecoder(r.Body).Decode(&updatedCat); err != nil {
+func (s *Server) updateCategoria(w http.ResponseWriter, r *http.Request, id int32) {
+	var in CategoriaInput
+	if err := json.NewDecoder(r.Body).Decode(&in); err != nil {
 		http.Error(w, "JSON inválido: "+err.Error(), http.StatusBadRequest)
 		return
 	}
 
-	if err := logic.ValidateCategory(updatedCat); err != nil {
+	nombre := strings.TrimSpace(in.Nombre)
+	if err := logic.ValidateCategoria(nombre); err != nil {
+		http.Error(w, err.Error(), http.StatusBadRequest)
+		return
+	}
+	if err := logic.ValidatePadre(id, in.PadreID); err != nil {
 		http.Error(w, err.Error(), http.StatusBadRequest)
 		return
 	}
 
-	// Preservar el ID de la URL y actualizar la posición en el slice
-	updatedCat.IDCat = id
-	categories[index] = updatedCat
-
-	w.Header().Set("Content-Type", "application/json")
-	w.WriteHeader(http.StatusOK)
-	json.NewEncoder(w).Encode(updatedCat)
-}
-
-// DELETE /categories/{id} - Eliminar una categoría
-func deleteCategory(w http.ResponseWriter, r *http.Request, id int) {
-	index, err := findCategoryIndexByID(id)
+	// La query usa ":one" con "RETURNING *": si el id no existe, sqlc devuelve
+	// sql.ErrNoRows, por lo que no hace falta un Get previo.
+	c, err := s.Queries.UpdateCategoria(r.Context(), db.UpdateCategoriaParams{
+		IDCategoria: id,
+		Nombre:      nombre,
+		PadreID:     toNullInt32(in.PadreID),
+	})
 	if err != nil {
-		http.Error(w, err.Error(), http.StatusNotFound)
+		if errors.Is(err, sql.ErrNoRows) {
+			http.Error(w, "Categoría no encontrada", http.StatusNotFound)
+			return
+		}
+		http.Error(w, err.Error(), http.StatusInternalServerError)
 		return
 	}
 
-	// Eliminar elemento del slice rebanando
-	categories = append(categories[:index], categories[index+1:]...)
+	w.Header().Set("Content-Type", "application/json")
+	json.NewEncoder(w).Encode(c)
+}
 
-	// Responder con 204 No Content
+func (s *Server) deleteCategoria(w http.ResponseWriter, r *http.Request, id int32) {
+	if err := s.Queries.DeleteCategoria(r.Context(), id); err != nil {
+		http.Error(w, err.Error(), http.StatusInternalServerError)
+		return
+	}
 	w.WriteHeader(http.StatusNoContent)
-}
-
-// Funciones auxiliares de búsqueda
-
-func findCategoryByID(id int) (*logic.Category, error) {
-	for i := range categories {
-		if categories[i].IDCat == id {
-			return &categories[i], nil
-		}
-	}
-	return nil, errors.New("categoría no encontrada")
-}
-
-func findCategoryIndexByID(id int) (int, error) {
-	for i, c := range categories {
-		if c.IDCat == id {
-			return i, nil
-		}
-	}
-	return -1, errors.New("categoría no encontrada")
 }

@@ -1,32 +1,20 @@
 package logic
 
-import (
-	"errors"
-	"strings"
-)
+import "errors"
 
-// Movimiento representa la entidad 'movimiento' en Go con sus respectivos tags JSON.
-type Stockmovement struct {
-	IDMovimiento int    `json:"id_movimiento"`
-	Tipo         string `json:"tipo"`
-	Cantidad     int    `json:"cantidad"`
-}
-
-// ValidateMovimiento aplica las reglas de negocio básicas para el movimiento.
-func ValidateMovimiento(m Stockmovement) error {
-	tipoLimpio := strings.TrimSpace(strings.ToUpper(m.Tipo))
-
-	if tipoLimpio == "" {
-		return errors.New("el tipo de movimiento no puede estar vacío")
+// ValidateMovimiento recibe tipo (en mayúsculas) y motivo ya limpiados.
+func ValidateMovimiento(productoID int32, tipo string, cantidad int32, motivo string) error {
+	if productoID <= 0 {
+		return errors.New("el ID de producto es obligatorio")
 	}
-
-	if tipoLimpio != "INGRESO" && tipoLimpio != "EGRESO" {
+	if tipo != "INGRESO" && tipo != "EGRESO" {
 		return errors.New("el tipo de movimiento debe ser 'INGRESO' o 'EGRESO'")
 	}
-
-	if m.Cantidad <= 0 {
+	if cantidad <= 0 {
 		return errors.New("la cantidad del movimiento debe ser mayor a cero")
 	}
-
+	if motivo == "" {
+		return errors.New("el motivo no puede estar vacío")
+	}
 	return nil
 }

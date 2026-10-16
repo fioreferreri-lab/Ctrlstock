@@ -11,41 +11,38 @@ import (
 )
 
 const createCategoria = `-- name: CreateCategoria :one
-INSERT INTO categoria (id_categoria, nombre, padre_id)
-VALUES ($1, $2, $3)
+INSERT INTO categoria (nombre, padre_id)
+VALUES ($1, $2)
 RETURNING id_categoria, nombre, padre_id
 `
 
 type CreateCategoriaParams struct {
-	IDCategoria int32
-	Nombre      string
-	PadreID     sql.NullInt32
+	Nombre  string
+	PadreID sql.NullInt32
 }
 
 func (q *Queries) CreateCategoria(ctx context.Context, arg CreateCategoriaParams) (Categorium, error) {
-	row := q.db.QueryRowContext(ctx, createCategoria, arg.IDCategoria, arg.Nombre, arg.PadreID)
+	row := q.db.QueryRowContext(ctx, createCategoria, arg.Nombre, arg.PadreID)
 	var i Categorium
 	err := row.Scan(&i.IDCategoria, &i.Nombre, &i.PadreID)
 	return i, err
 }
 
 const createMovimiento = `-- name: CreateMovimiento :one
-INSERT INTO movimiento_stock (id_movimiento, producto_id, tipo, cantidad, motivo)
-VALUES ($1, $2, $3, $4, $5)
+INSERT INTO movimiento_stock (producto_id, tipo, cantidad, motivo)
+VALUES ($1, $2, $3, $4)
 RETURNING id_movimiento, producto_id, tipo, cantidad, motivo, fecha
 `
 
 type CreateMovimientoParams struct {
-	IDMovimiento int32
-	ProductoID   int32
-	Tipo         string
-	Cantidad     int32
-	Motivo       string
+	ProductoID int32
+	Tipo       string
+	Cantidad   int32
+	Motivo     string
 }
 
 func (q *Queries) CreateMovimiento(ctx context.Context, arg CreateMovimientoParams) (MovimientoStock, error) {
 	row := q.db.QueryRowContext(ctx, createMovimiento,
-		arg.IDMovimiento,
 		arg.ProductoID,
 		arg.Tipo,
 		arg.Cantidad,
@@ -64,13 +61,12 @@ func (q *Queries) CreateMovimiento(ctx context.Context, arg CreateMovimientoPara
 }
 
 const createProducto = `-- name: CreateProducto :one
-INSERT INTO producto (id_producto, nombre, descripcion, precio, stock, id_categoria)
-VALUES ($1, $2, $3, $4, $5, $6)
+INSERT INTO producto (nombre, descripcion, precio, stock, id_categoria)
+VALUES ($1, $2, $3, $4, $5)
 RETURNING id_producto, nombre, descripcion, precio, stock, id_categoria
 `
 
 type CreateProductoParams struct {
-	IDProducto  int32
 	Nombre      string
 	Descripcion sql.NullString
 	Precio      string
@@ -80,7 +76,6 @@ type CreateProductoParams struct {
 
 func (q *Queries) CreateProducto(ctx context.Context, arg CreateProductoParams) (Producto, error) {
 	row := q.db.QueryRowContext(ctx, createProducto,
-		arg.IDProducto,
 		arg.Nombre,
 		arg.Descripcion,
 		arg.Precio,
@@ -377,10 +372,11 @@ func (q *Queries) ListSubcategorias(ctx context.Context, padreID sql.NullInt32) 
 	return items, nil
 }
 
-const updateCategoria = `-- name: UpdateCategoria :exec
+const updateCategoria = `-- name: UpdateCategoria :one
 UPDATE categoria
 SET nombre = $1, padre_id = $2
 WHERE id_categoria = $3
+RETURNING id_categoria, nombre, padre_id
 `
 
 type UpdateCategoriaParams struct {
@@ -389,15 +385,18 @@ type UpdateCategoriaParams struct {
 	IDCategoria int32
 }
 
-func (q *Queries) UpdateCategoria(ctx context.Context, arg UpdateCategoriaParams) error {
-	_, err := q.db.ExecContext(ctx, updateCategoria, arg.Nombre, arg.PadreID, arg.IDCategoria)
-	return err
+func (q *Queries) UpdateCategoria(ctx context.Context, arg UpdateCategoriaParams) (Categorium, error) {
+	row := q.db.QueryRowContext(ctx, updateCategoria, arg.Nombre, arg.PadreID, arg.IDCategoria)
+	var i Categorium
+	err := row.Scan(&i.IDCategoria, &i.Nombre, &i.PadreID)
+	return i, err
 }
 
-const updateProducto = `-- name: UpdateProducto :exec
+const updateProducto = `-- name: UpdateProducto :one
 UPDATE producto
 SET nombre = $1, descripcion = $2, precio = $3, stock = $4, id_categoria = $5
 WHERE id_producto = $6
+RETURNING id_producto, nombre, descripcion, precio, stock, id_categoria
 `
 
 type UpdateProductoParams struct {
@@ -409,8 +408,8 @@ type UpdateProductoParams struct {
 	IDProducto  int32
 }
 
-func (q *Queries) UpdateProducto(ctx context.Context, arg UpdateProductoParams) error {
-	_, err := q.db.ExecContext(ctx, updateProducto,
+func (q *Queries) UpdateProducto(ctx context.Context, arg UpdateProductoParams) (Producto, error) {
+	row := q.db.QueryRowContext(ctx, updateProducto,
 		arg.Nombre,
 		arg.Descripcion,
 		arg.Precio,
@@ -418,5 +417,14 @@ func (q *Queries) UpdateProducto(ctx context.Context, arg UpdateProductoParams) 
 		arg.IDCategoria,
 		arg.IDProducto,
 	)
-	return err
+	var i Producto
+	err := row.Scan(
+		&i.IDProducto,
+		&i.Nombre,
+		&i.Descripcion,
+		&i.Precio,
+		&i.Stock,
+		&i.IDCategoria,
+	)
+	return i, err
 }

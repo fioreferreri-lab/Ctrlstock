@@ -19,14 +19,15 @@ WHERE padre_id = $1
 ORDER BY nombre;
 
 -- name: CreateCategoria :one
-INSERT INTO categoria (id_categoria, nombre, padre_id)
-VALUES ($1, $2, $3)
+INSERT INTO categoria (nombre, padre_id)
+VALUES ($1, $2)
 RETURNING *;
 
--- name: UpdateCategoria :exec
+-- name: UpdateCategoria :one
 UPDATE categoria
 SET nombre = $1, padre_id = $2
-WHERE id_categoria = $3;
+WHERE id_categoria = $3
+RETURNING *;
 
 -- name: DeleteCategoria :exec
 DELETE FROM categoria 
@@ -43,19 +44,19 @@ SELECT * FROM producto
 ORDER BY nombre;
 
 -- name: CreateProducto :one
-INSERT INTO producto (id_producto, nombre, descripcion, precio, stock, id_categoria)
-VALUES ($1, $2, $3, $4, $5, $6)
+INSERT INTO producto (nombre, descripcion, precio, stock, id_categoria)
+VALUES ($1, $2, $3, $4, $5)
 RETURNING *;
 
--- name: UpdateProducto :exec
+-- name: UpdateProducto :one
 UPDATE producto
 SET nombre = $1, descripcion = $2, precio = $3, stock = $4, id_categoria = $5
-WHERE id_producto = $6;
+WHERE id_producto = $6
+RETURNING *;
 
 -- name: DeleteProducto :exec
 DELETE FROM producto 
 WHERE id_producto = $1;
-
 
 -- MOVIMIENTO_STOCK
 
@@ -73,8 +74,8 @@ WHERE producto_id = $1
 ORDER BY fecha DESC;
 
 -- name: CreateMovimiento :one
-INSERT INTO movimiento_stock (id_movimiento, producto_id, tipo, cantidad, motivo)
-VALUES ($1, $2, $3, $4, $5)
+INSERT INTO movimiento_stock (producto_id, tipo, cantidad, motivo)
+VALUES ($1, $2, $3, $4)
 RETURNING *;
 
 -- name: DeleteMovimiento :exec

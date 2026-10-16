@@ -1,162 +1,122 @@
 package handlers
 
 import (
+	"database/sql"
 	"encoding/json"
 	"errors"
 	"net/http"
 	"strconv"
 	"strings"
 
+	db "ctrlstock/db"
 	"ctrlstock/logic"
 )
 
-// Lista global de movimientos en memoria
-var movimientos = []logic.Stockmovement{
-	{IDMovimiento: 1, Tipo: "INGRESO", Cantidad: 50},
-	{IDMovimiento: 2, Tipo: "EGRESO", Cantidad: 10},
+type MovimientoInput struct {
+	ProductoID int32  `json:"producto_id"`
+	Tipo       string `json:"tipo"`
+	Cantidad   int32  `json:"cantidad"`
+	Motivo     string `json:"motivo"`
 }
 
-// MovimientosHandler maneja la colección (/movimientos) -> GET (listar) y POST (crear)
-func MovimientosHandler(w http.ResponseWriter, r *http.Request) {
-	switch r.Method {
-	case http.MethodGet:
-		getMovimientos(w, r)
-	case http.MethodPost:
-		createMovimiento(w, r)
-	default:
-		http.Error(w, "Método no permitido", http.StatusMethodNotAllowed)
-	}
-}
+func (s *Server) MovimientosHandler(w http.ResponseWriter, r *http.Request) {
+	path := strings.TrimPrefix(r.URL.Path, "/movimiento_stock")
+	path = strings.Trim(path, "/")
 
-// MovimientoHandler maneja un recurso individual (/movimientos/{id}) -> GET, PUT, DELETE
-func MovimientoHandler(w http.ResponseWriter, r *http.Request) {
-	// Extraer el ID desde la URL (ejemplo: "/movimientos/2")
-	parts := strings.Split(strings.Trim(r.URL.Path, "/"), "/")
-	if len(parts) != 2 {
-		http.Error(w, "URL inválida", http.StatusBadRequest)
+	if path == "" {
+		switch r.Method {
+		case http.MethodGet:
+			s.listMovimientos(w, r)
+		case http.MethodPost:
+			s.createMovimiento(w, r)
+		default:
+			http.Error(w, "Método no permitido", http.StatusMethodNotAllowed)
+		}
 		return
 	}
 
-	id, err := strconv.Atoi(parts[1])
-	if err != nil || id <= 0 {
+	if strings.Contains(path, "/") {
+		http.Error(w, "Ruta no encontrada", http.StatusNotFound)
+		return
+	}
+
+	id, err := strconv.Atoi(path)
+	if err != nil {
 		http.Error(w, "ID de movimiento inválido", http.StatusBadRequest)
 		return
 	}
 
 	switch r.Method {
 	case http.MethodGet:
-		getMovimiento(w, r, id)
-	case http.MethodPut:
-		updateMovimiento(w, r, id)
+		s.getMovimiento(w, r, int32(id))
 	case http.MethodDelete:
-		deleteMovimiento(w, r, id)
+		s.deleteMovimiento(w, r, int32(id))
 	default:
 		http.Error(w, "Método no permitido", http.StatusMethodNotAllowed)
 	}
 }
 
-// Operaciones CRUD
-
-// GET /movimientos - Listar todos los movimientos
-func getMovimientos(w http.ResponseWriter, r *http.Request) {
+func (s *Server) listMovimientos(w http.ResponseWriter, r *http.Request) {
+	lista, err := s.Queries.ListMovimientos(r.Context())
+	if err != nil {
+		http.Error(w, err.Error(), http.StatusInternalServerError)
+		return
+	}
+	if lista == nil {
+		lista = []db.MovimientoStock{}
+	}
 	w.Header().Set("Content-Type", "application/json")
-	w.WriteHeader(http.StatusOK)
-	json.NewEncoder(w).Encode(movimientos)
+	json.NewEncoder(w).Encode(lista)
 }
 
-// POST /movimientos - Crear un nuevo movimiento
-func createMovimiento(w http.ResponseWriter, r *http.Request) {
-	var newMov logic.Stockmovement
-	if err := json.NewDecoder(r.Body).Decode(&newMov); err != nil {
+func (s *Server) createMovimiento(w http.ResponseWriter, r *http.Request) {
+	var in MovimientoInput
+	if err := json.NewDecoder(r.Body).Decode(&in); err != nil {
 		http.Error(w, "JSON inválido: "+err.Error(), http.StatusBadRequest)
 		return
 	}
 
-	if err := logic.ValidateMovimiento(newMov); err != nil {
+	tipo := strings.ToUpper(strings.TrimSpace(in.Tipo))
+	motivo := strings.TrimSpace(in.Motivo)
+	if err := logic.ValidateMovimiento(in.ProductoID, tipo, in.Cantidad, motivo); err != nil {
 		http.Error(w, err.Error(), http.StatusBadRequest)
 		return
 	}
 
-	newMov.IDMovimiento = len(movimientos) + 1
-	movimientos = append(movimientos, newMov)
+	m, err := s.Queries.CreateMovimiento(r.Context(), db.CreateMovimientoParams{
+		ProductoID: in.ProductoID,
+		Tipo:       tipo,
+		Cantidad:   in.Cantidad,
+		Motivo:     motivo,
+	})
+	if err != nil {
+		http.Error(w, err.Error(), http.StatusInternalServerError)
+		return
+	}
 
 	w.Header().Set("Content-Type", "application/json")
 	w.WriteHeader(http.StatusCreated)
-	json.NewEncoder(w).Encode(newMov)
+	json.NewEncoder(w).Encode(m)
 }
 
-// GET /movimientos/{id} - Obtener un movimiento específico por ID
-func getMovimiento(w http.ResponseWriter, r *http.Request, id int) {
-	mov, err := findMovimientoByID(id)
+func (s *Server) getMovimiento(w http.ResponseWriter, r *http.Request, id int32) {
+	m, err := s.Queries.GetMovimientoByID(r.Context(), id)
 	if err != nil {
-		http.Error(w, err.Error(), http.StatusNotFound)
+		if errors.Is(err, sql.ErrNoRows) {
+			http.Error(w, "Movimiento no encontrado", http.StatusNotFound)
+			return
+		}
+		http.Error(w, err.Error(), http.StatusInternalServerError)
 		return
 	}
-
 	w.Header().Set("Content-Type", "application/json")
-	w.WriteHeader(http.StatusOK)
-	json.NewEncoder(w).Encode(mov)
+	json.NewEncoder(w).Encode(m)
 }
 
-// PUT /movimientos/{id} - Actualizar un movimiento existente
-func updateMovimiento(w http.ResponseWriter, r *http.Request, id int) {
-	index, err := findMovimientoIndexByID(id)
-	if err != nil {
-		http.Error(w, err.Error(), http.StatusNotFound)
+func (s *Server) deleteMovimiento(w http.ResponseWriter, r *http.Request, id int32) {
+	if err := s.Queries.DeleteMovimiento(r.Context(), id); err != nil {
+		http.Error(w, err.Error(), http.StatusInternalServerError)
 		return
 	}
-
-	var updatedMov logic.Stockmovement
-	if err := json.NewDecoder(r.Body).Decode(&updatedMov); err != nil {
-		http.Error(w, "JSON inválido: "+err.Error(), http.StatusBadRequest)
-		return
-	}
-
-	if err := logic.ValidateMovimiento(updatedMov); err != nil {
-		http.Error(w, err.Error(), http.StatusBadRequest)
-		return
-	}
-
-	// Preservar el ID de la URL y actualizar la posición en el slice
-	updatedMov.IDMovimiento = id
-	movimientos[index] = updatedMov
-
-	w.Header().Set("Content-Type", "application/json")
-	w.WriteHeader(http.StatusOK)
-	json.NewEncoder(w).Encode(updatedMov)
-}
-
-// DELETE /movimientos/{id} - Eliminar un movimiento
-func deleteMovimiento(w http.ResponseWriter, r *http.Request, id int) {
-	index, err := findMovimientoIndexByID(id)
-	if err != nil {
-		http.Error(w, err.Error(), http.StatusNotFound)
-		return
-	}
-
-	// Eliminar elemento del slice rebanando
-	movimientos = append(movimientos[:index], movimientos[index+1:]...)
-
-	// Responder con 204 No Content
 	w.WriteHeader(http.StatusNoContent)
-}
-
-// Funciones auxiliares de búsqueda
-
-func findMovimientoByID(id int) (*logic.Stockmovement, error) {
-	for i := range movimientos {
-		if movimientos[i].IDMovimiento == id {
-			return &movimientos[i], nil
-		}
-	}
-	return nil, errors.New("movimiento no encontrado")
-}
-
-func findMovimientoIndexByID(id int) (int, error) {
-	for i, m := range movimientos {
-		if m.IDMovimiento == id {
-			return i, nil
-		}
-	}
-	return -1, errors.New("movimiento no encontrado")
 }

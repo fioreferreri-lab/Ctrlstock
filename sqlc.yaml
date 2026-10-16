@@ -1,9 +1,11 @@
 version: "2"
 sql:
   - engine: "postgresql"
-    queries: "db/queries/queries.sql"
-    schema: "db/scheme/schema.sql"
+    schema: "db/scheme/schema.sql"  # Asegúrate de que esta ruta a tu schema sea la real
+    queries: "db/queries"          # <-- Apunta a la carpeta db/queries
     gen:
       go:
         package: "db"
         out: "db"
+        rename:
+          categoria: "Categoria"

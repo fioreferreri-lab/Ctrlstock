@@ -20,27 +20,24 @@ func newTestQueries(t *testing.T) (*Queries, context.Context) {
 	return New(dbConn), context.Background()
 }
 
-// crea una categoría de prueba usando la función de sqlc (no SQL a mano)
-// y la borra automáticamente al terminar el test.
-func createTestCategoria(t *testing.T, q *Queries, ctx context.Context, id int32) Categorium {
+// crea una categoría de prueba usando la función de sqlc y la borra automáticamente al terminar.
+func createTestCategoria(t *testing.T, q *Queries, ctx context.Context) Categorium {
 	t.Helper()
 	cat, err := q.CreateCategoria(ctx, CreateCategoriaParams{
-		IDCategoria: id,
-		Nombre:      "Accesorios",
-		PadreID:     sql.NullInt32{},
+		Nombre:  "Accesorios",
+		PadreID: sql.NullInt32{},
 	})
 	if err != nil {
 		t.Fatalf("no se pudo preparar la categoría de prueba: %v", err)
 	}
-	t.Cleanup(func() { _ = q.DeleteCategoria(ctx, id) })
+	t.Cleanup(func() { _ = q.DeleteCategoria(ctx, cat.IDCategoria) })
 	return cat
 }
 
-// crea un producto de prueba y lo borra automáticamente al terminar el test.
-func createTestProducto(t *testing.T, q *Queries, ctx context.Context, id, catID int32) Producto {
+// crea un producto de prueba y lo borra automáticamente al terminar.
+func createTestProducto(t *testing.T, q *Queries, ctx context.Context, catID int32) Producto {
 	t.Helper()
 	p, err := q.CreateProducto(ctx, CreateProductoParams{
-		IDProducto:  id,
 		Nombre:      "Scrunchie Mío Mío",
 		Descripcion: sql.NullString{String: "Scrunchie de seda natural", Valid: true},
 		Precio:      "1500.50",
@@ -50,7 +47,7 @@ func createTestProducto(t *testing.T, q *Queries, ctx context.Context, id, catID
 	if err != nil {
 		t.Fatalf("no se pudo preparar el producto de prueba: %v", err)
 	}
-	t.Cleanup(func() { _ = q.DeleteProducto(ctx, id) })
+	t.Cleanup(func() { _ = q.DeleteProducto(ctx, p.IDProducto) })
 	return p
 }
 
@@ -58,10 +55,9 @@ func createTestProducto(t *testing.T, q *Queries, ctx context.Context, id, catID
 
 func TestCreateProducto(t *testing.T) {
 	q, ctx := newTestQueries(t)
-	cat := createTestCategoria(t, q, ctx, 1)
+	cat := createTestCategoria(t, q, ctx)
 
 	producto, err := q.CreateProducto(ctx, CreateProductoParams{
-		IDProducto:  100,
 		Nombre:      "Scrunchie Mío Mío",
 		Descripcion: sql.NullString{String: "Scrunchie de seda natural", Valid: true},
 		Precio:      "1500.50",
@@ -71,7 +67,7 @@ func TestCreateProducto(t *testing.T) {
 	if err != nil {
 		t.Fatalf("falló al crear producto: %v", err)
 	}
-	t.Cleanup(func() { _ = q.DeleteProducto(ctx, 100) })
+	t.Cleanup(func() { _ = q.DeleteProducto(ctx, producto.IDProducto) })
 
 	if producto.Nombre != "Scrunchie Mío Mío" {
 		t.Errorf("esperaba nombre %q, obtuve %q", "Scrunchie Mío Mío", producto.Nombre)
@@ -80,8 +76,8 @@ func TestCreateProducto(t *testing.T) {
 
 func TestGetProductoByID(t *testing.T) {
 	q, ctx := newTestQueries(t)
-	cat := createTestCategoria(t, q, ctx, 1)
-	prod := createTestProducto(t, q, ctx, 100, cat.IDCategoria)
+	cat := createTestCategoria(t, q, ctx)
+	prod := createTestProducto(t, q, ctx, cat.IDCategoria)
 
 	producto, err := q.GetProductoByID(ctx, prod.IDProducto)
 	if err != nil {
@@ -103,25 +99,21 @@ func TestGetProductoByID_Inexistente(t *testing.T) {
 
 func TestUpdateProducto(t *testing.T) {
 	q, ctx := newTestQueries(t)
-	cat := createTestCategoria(t, q, ctx, 1)
-	prod := createTestProducto(t, q, ctx, 100, cat.IDCategoria)
+	cat := createTestCategoria(t, q, ctx)
+	prod := createTestProducto(t, q, ctx, cat.IDCategoria)
 
-	err := q.UpdateProducto(ctx, UpdateProductoParams{
-		IDProducto:  prod.IDProducto,
+	actualizado, err := q.UpdateProducto(ctx, UpdateProductoParams{
 		Nombre:      "Scrunchie Premium",
 		Descripcion: sql.NullString{String: "Edición limitada", Valid: true},
 		Precio:      "1800.00",
 		Stock:       30,
 		IDCategoria: sql.NullInt32{Int32: cat.IDCategoria, Valid: true},
+		IDProducto:  prod.IDProducto,
 	})
 	if err != nil {
 		t.Fatalf("falló al actualizar producto: %v", err)
 	}
 
-	actualizado, err := q.GetProductoByID(ctx, prod.IDProducto)
-	if err != nil {
-		t.Fatalf("falló al releer producto actualizado: %v", err)
-	}
 	if actualizado.Nombre != "Scrunchie Premium" {
 		t.Errorf("esperaba nombre actualizado %q, obtuve %q", "Scrunchie Premium", actualizado.Nombre)
 	}
@@ -130,8 +122,7 @@ func TestUpdateProducto(t *testing.T) {
 func TestCreateProducto_CategoriaInexistente(t *testing.T) {
 	q, ctx := newTestQueries(t)
 
-	_, err := q.CreateProducto(ctx, CreateProductoParams{
-		IDProducto:  999,
+	prod, err := q.CreateProducto(ctx, CreateProductoParams{
 		Nombre:      "Collar Roto",
 		Descripcion: sql.NullString{String: "Error", Valid: true},
 		Precio:      "500.00",
@@ -140,14 +131,14 @@ func TestCreateProducto_CategoriaInexistente(t *testing.T) {
 	})
 	if err == nil {
 		t.Errorf("se esperaba un error de clave foránea, pero el producto se creó igual")
-		_ = q.DeleteProducto(ctx, 999) // limpiar si falló la aserción
+		_ = q.DeleteProducto(ctx, prod.IDProducto)
 	}
 }
 
 func TestDeleteProducto(t *testing.T) {
 	q, ctx := newTestQueries(t)
-	cat := createTestCategoria(t, q, ctx, 1)
-	prod := createTestProducto(t, q, ctx, 100, cat.IDCategoria)
+	cat := createTestCategoria(t, q, ctx)
+	prod := createTestProducto(t, q, ctx, cat.IDCategoria)
 
 	if err := q.DeleteProducto(ctx, prod.IDProducto); err != nil {
 		t.Fatalf("falló al eliminar producto: %v", err)
@@ -163,20 +154,19 @@ func TestDeleteProducto(t *testing.T) {
 
 func TestCreateMovimiento(t *testing.T) {
 	q, ctx := newTestQueries(t)
-	cat := createTestCategoria(t, q, ctx, 1)
-	prod := createTestProducto(t, q, ctx, 100, cat.IDCategoria)
+	cat := createTestCategoria(t, q, ctx)
+	prod := createTestProducto(t, q, ctx, cat.IDCategoria)
 
 	mov, err := q.CreateMovimiento(ctx, CreateMovimientoParams{
-		IDMovimiento: 500,
-		ProductoID:   prod.IDProducto,
-		Tipo:         "INGRESO",
-		Cantidad:     10,
-		Motivo:       "Reposición inicial",
+		ProductoID: prod.IDProducto,
+		Tipo:       "INGRESO",
+		Cantidad:   10,
+		Motivo:     "Reposición inicial",
 	})
 	if err != nil {
 		t.Fatalf("falló al crear movimiento de stock: %v", err)
 	}
-	t.Cleanup(func() { _ = q.DeleteMovimiento(ctx, 500) })
+	t.Cleanup(func() { _ = q.DeleteMovimiento(ctx, mov.IDMovimiento) })
 
 	if mov.Cantidad != 10 {
 		t.Errorf("esperaba cantidad 10, obtuve %d", mov.Cantidad)
@@ -186,15 +176,14 @@ func TestCreateMovimiento(t *testing.T) {
 func TestCreateMovimiento_ProductoInexistente(t *testing.T) {
 	q, ctx := newTestQueries(t)
 
-	_, err := q.CreateMovimiento(ctx, CreateMovimientoParams{
-		IDMovimiento: 501,
-		ProductoID:   99999, // no existe
-		Tipo:         "EGRESO",
-		Cantidad:     5,
-		Motivo:       "Venta fantasma",
+	mov, err := q.CreateMovimiento(ctx, CreateMovimientoParams{
+		ProductoID: 99999, // no existe
+		Tipo:       "EGRESO",
+		Cantidad:   5,
+		Motivo:     "Venta fantasma",
 	})
 	if err == nil {
 		t.Errorf("se esperaba un error de clave foránea al asociar un movimiento a un producto inexistente")
-		_ = q.DeleteMovimiento(ctx, 501)
+		_ = q.DeleteMovimiento(ctx, mov.IDMovimiento)
 	}
 }

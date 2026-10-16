@@ -2,41 +2,69 @@ package main
 
 import (
 	"database/sql"
-	"fmt"
 	"log"
 	"net/http"
+	"os"
+	"time"
 
-	_ "github.com/lib/pq" // Driver de PostgreSQL necesario para database/sql
+	_ "github.com/lib/pq"
 
-	"ctrlstock/db"       // Paquete generado por sqlc
-	"ctrlstock/handlers" // Paquete de manejadores HTTP
+	db "ctrlstock/db"
+	"ctrlstock/handlers"
 )
 
+func loggingMiddleware(next http.Handler) http.Handler {
+	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		log.Printf("[%s] %s desde %s", r.Method, r.URL.Path, r.RemoteAddr)
+		next.ServeHTTP(w, r)
+	})
+}
+
 func main() {
-	// 1. Conexión a la base de datos PostgreSQL
-	dsn := "postgres://user:password@localhost:5432/stockapp?sslmode=disable"
+
+	/*====================================
+	CONEXION BASE DE DATOS
+	=====================================*/
+	dsn := os.Getenv("DATABASE_URL")
+	if dsn == "" {
+		log.Fatal("Falta la variable de entorno DATABASE_URL")
+	}
+
 	conn, err := sql.Open("postgres", dsn)
 	if err != nil {
-		log.Fatal("Error configurando la conexión: ", err)
+		log.Fatalf("No se pudo abrir la conexión: %v", err)
 	}
 	defer conn.Close()
 
-	// Verificamos que PostgreSQL/Docker responda
-	if err := conn.Ping(); err != nil {
-		log.Fatal("La base de datos no responde: ", err)
+	var pingErr error
+	for i := 0; i < 30; i++ {
+		if pingErr = conn.Ping(); pingErr == nil {
+			break
+		}
+		time.Sleep(1 * time.Second)
 	}
-	fmt.Println("¡Conexión exitosa a PostgreSQL!")
+	if pingErr != nil {
+		log.Fatalf("No se pudo conectar a la base de datos tras varios intentos: %v", pingErr)
+	}
 
-	// 2. Inicialización de sqlc
-	queries := db.New(conn)
-	_ = queries // Evita el error 'declared and not used' mientras no se use en los handlers
-	fmt.Println("Paquete de base de datos (db) inicializado y listo para usar.")
+	server := &handlers.Server{
+		Queries: db.New(conn),
+	}
 
-	// 3. Configuración del ruteador HTTP
-	http.HandleFunc("/categories", handlers.CategoriesHandler)
-	http.HandleFunc("/categories/", handlers.CategoryHandler)
+	/*====================================
+	END-POINTS
+	=====================================*/
+	mux := http.NewServeMux()
+	mux.Handle("/categoria", loggingMiddleware(http.HandlerFunc(server.CategoriasHandler)))
+	mux.Handle("/categoria/", loggingMiddleware(http.HandlerFunc(server.CategoriasHandler)))
+	mux.Handle("/producto", loggingMiddleware(http.HandlerFunc(server.ProductosHandler)))
+	mux.Handle("/producto/", loggingMiddleware(http.HandlerFunc(server.ProductosHandler)))
+	mux.Handle("/movimiento_stock", loggingMiddleware(http.HandlerFunc(server.MovimientosHandler)))
+	mux.Handle("/movimiento_stock/", loggingMiddleware(http.HandlerFunc(server.MovimientosHandler)))
 
-	// 4. Inicio del servidor HTTP
-	fmt.Println("Servidor de Categorías corriendo en http://localhost:8080...")
-	log.Fatal(http.ListenAndServe(":8080", nil))
+	port := ":8080"
+	log.Printf("Servidor escuchando en http://localhost%s\n", port)
+	if err := http.ListenAndServe(port, mux); err != nil {
+		log.Fatalf("Error al iniciar el servidor: %s", err)
+	}
 }
