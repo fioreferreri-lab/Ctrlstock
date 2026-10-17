@@ -1,106 +1,204 @@
-# CtrlStock: Documentación Técnica y de Arquitectura
+# CtrlStock: API REST de gestión de stock
 
-**CtrlStock** es una aplicación web robusta y moderna para la gestión integral de stock e inventario, diseñada con un enfoque en la mantenibilidad, el tipado seguro y la reproducibilidad del entorno. Permite la administración eficiente de productos, jerarquía de categorías y el registro auditable de todos los movimientos de inventario.
+**CtrlStock** es una API REST para la gestión de stock e inventario. Permite administrar productos, una jerarquía de categorías y el registro histórico de los movimientos de inventario.
 
----
-
-## 1. Arquitectura y Tecnologías Utilizadas
-
-El sistema está construido utilizando un stack tecnológico moderno, ligero y altamente performante:
-
-*   **Lenguaje Principal:** **Go (Golang)**, elegido por su alta concurrencia, rendimiento excepcional y tipado estático robusto.
-*   **Base de Datos:** **PostgreSQL**, motor relacional potente y confiable para la integridad transaccional de los datos de inventario.
-*   **Contenedorización:** **Docker & Docker Compose**, que garantizan un entorno de base de datos aislado, reproducible y libre de dependencias locales complejas.
-*   **Generación de Código:** **sqlc**, herramienta que compila consultas SQL nativas en código Go fuertemente tipado, eliminando la necesidad de ORMs pesados y previniendo errores en tiempo de ejecución.
-*   **Automatización:** **GNU Make**, para estandarizar y simplificar las tareas de desarrollo, pruebas y despliegue local.
-*   **Driver de Conexión:** `lib/pq`, driver oficial de PostgreSQL para Go que gestiona la comunicación con la base de datos.
+La API expone la lógica de negocio a través de endpoints HTTP, conectándola con la capa de datos generada por **sqlc** sobre **PostgreSQL**.
 
 ---
 
-## 2. Requisitos del Sistema
+## 1. Tecnologías utilizadas
 
-Para poder ejecutar la automatización, persistencia, compilación y testeo del proyecto, es necesario contar con las siguientes herramientas instaladas en el sistema operativo:
-
-1.  **Go:** Versión `>= 1.22.2`.
-2.  **Docker y Docker Compose:** Indispensables para levantar el contenedor con la instancia de PostgreSQL.
-3.  **Make:** Utilizado para ejecutar las recetas de automatización de pruebas y flujos de trabajo.
-4.  **SQLC:** Utilizado para la generación automática de código Go a partir de las consultas SQL definidas para PostgreSQL.
+*   **Go:** lenguaje principal de la aplicación y del servidor HTTP (`net/http`).
+*   **PostgreSQL:** motor de base de datos relacional.
+*   **Docker y Docker Compose:** levantan PostgreSQL en un contenedor, sin instalaciones locales y de forma reproducible en cualquier entorno.
+*   **sqlc:** genera código Go tipado a partir de las consultas SQL. El código generado no se versiona: se crea automáticamente al ejecutar `make run`, `make build` o `make test`.
+*   **lib/pq:** driver de PostgreSQL para Go.
+*   **GNU Make:** automatiza la generación de código, la base de datos, la ejecución y las pruebas.
+*   **curl:** usado por `requests.bash` para probar cada endpoint.
 
 ---
 
-## 3. Estructura del Proyecto
+## 2. Requisitos
 
-La disposición de los directorios y archivos principales del repositorio sigue una estructura limpia y modular:
+1.  **Go** `>= 1.22.2`
+2.  **Docker** y **Docker Compose**
+3.  **Make**
+4.  **sqlc** (debe estar en el `PATH`; por ejemplo, si se instaló con `go install`, agregar `$HOME/go/bin` al `PATH`)
+5.  **curl**
+
+---
+
+## 3. Estructura del proyecto
 
 ```text
-SISTEMA_STOCK/
+Ctrlstock/
 │
-├── db/
-│   ├── scheme/
-│   │   └── schema.sql        # Define las tablas: categoria, producto y movimiento_stock
-│   ├── queries/
-│   │   └── queries.sql       # Consultas SQL optimizadas utilizadas por sqlc
-│   ├── models.go             # Código Go generado automáticamente por sqlc (estructuras de datos)
-│   └── queries.sql.go        # Código Go generado automáticamente por sqlc (métodos CRUD)
+├── main.go                    # Conexión a la base, instancia de sqlc, rutas y servidor HTTP
 │
-├── docker-compose.yml        # Configuración del contenedor de PostgreSQL (desarrollo y testing)
-└── Makefile                  # Automatización de generación de código, DB y tests
+├── handlers/                  # Capa HTTP: reciben el pedido, validan y responden JSON
+│   ├── categories.go
+│   ├── products.go
+│   ├── stock_movements.go
+│   └── utils.go
+│
+├── logic/                     # Reglas de negocio (validaciones)
+│   ├── category.go
+│   ├── product.go
+│   └── stock_movement.go
+│
+├── db/                        # Capa de datos
+│   ├── scheme/schema.sql      # Definición de las tablas
+│   ├── queries/               # Consultas SQL usadas por sqlc (un archivo por tabla)
+│   │   ├── categoria.sql
+│   │   ├── producto.sql
+│   │   └── movimiento_stock.sql
+│   ├── *.go generados         # Código generado por sqlc (no se sube al repo)
+│   └── crud_test.go           # Tests de las consultas contra PostgreSQL
+│
+├── docker-compose.yaml        # Contenedor de PostgreSQL
+├── sqlc.yaml                  # Configuración de sqlc
+├── makefile                   # Automatización de tareas
+└── requests.bash              # Pruebas de todos los endpoints con curl
+```
+
+### Flujo de una petición
+
+```text
+Cliente (curl) → endpoint → handler → reglas de negocio (logic) → queries de sqlc → PostgreSQL
+                                                                                      ↓
+Cliente ← respuesta JSON ← handler ←───────────────────────────────────────────────  datos
 ```
 
 ---
 
-## 4. Modelo de Datos
-
-El diseño relacional de la base de datos se compone de tres entidades principales que garantizan la trazabilidad y organización del inventario:
+## 4. Modelo de datos
 
 ### A. Categoría (`categoria`)
-Organiza los productos en una jerarquía flexible, permitiendo la creación de subcategorías mediante una relación recursiva consigo misma (`padre_id`).
-*   **Campos clave:** ID, nombre, descripción, `padre_id` (autoreferencia opcional).
+Organiza los productos en una jerarquía: una categoría puede tener una categoría padre (`padre_id`, opcional).
 
 ### B. Producto (`producto`)
-Representa cada ítem individual dentro del catálogo del e-commerce.
-*   **Campos clave:** ID, nombre, descripción, precio unitario, stock actual, `categoria_id` (clave foránea).
+Cada ítem del inventario: nombre, descripción, precio, stock actual y categoría (`id_categoria`).
 
-### C. Movimiento de Stock (`movimiento_stock`)
-Registra de forma histórica y auditable cada entrada, salida o ajuste de inventario (por ejemplo: compras a proveedores, ventas a clientes, mermas o ajustes manuales). Esto evita mantener únicamente el número final, asegurando una auditoría completa.
-*   **Campos clave:** ID, `producto_id`, tipo de movimiento (entrada/salida), cantidad, motivo/descripción, timestamp.
+### C. Movimiento de stock (`movimiento_stock`)
+Registro histórico de cada movimiento de inventario: producto, tipo (`INGRESO` o `EGRESO`), cantidad, motivo y fecha.
 
 ---
 
-## 5. Persistencia de Datos
+## 5. Cómo ejecutar el proyecto
 
-El almacenamiento y la gestión de la persistencia se realizan mediante PostgreSQL ejecutado en contenedores Docker:
+### Paso 1: Clonar el repositorio
 
-*   **Cadena de Conexión:** La aplicación se conecta utilizando el formato estándar:
-    `postgres://usuario:contraseña@host:puerto/basededatos`
-*   **Persistencia entre Reinicios:** El contenedor de PostgreSQL utiliza un volumen persistente de Docker (`postgres_data`) montado en `/var/lib/postgresql/data`. Esto asegura que los datos no se pierdan al detener o reiniciar el contenedor, a menos que se ejecute explícitamente una destrucción de volúmenes (`docker compose down -v`).
-*   **Aplicación del Esquema:** Las tablas se definen en `schema.sql` y se despliegan automáticamente al inicializar el entorno mediante las tareas definidas en el Makefile.
-*   **Acceso a Datos Tipado:** Las operaciones CRUD se centralizan en `queries.sql`. A partir de estas, **sqlc** genera código Go idiomático (`queries.sql.go`), previniendo errores de sintaxis SQL en tiempo de ejecución y aislando la lógica de negocio del lenguaje de base de datos.
-
----
-
-## 6. Guía de Ejecución y Flujo de Trabajo
-
-### Paso 1: Clonar el Repositorio
-Clonar el proyecto desde el repositorio oficial de GitHub:
 ```bash
-git clone https://github.com/tu-usuario/SISTEMA_STOCK.git
-cd SISTEMA_STOCK
+git clone https://github.com/fioreferreri-lab/Ctrlstock.git
+cd Ctrlstock
+git checkout tp3-api-rest
 ```
 
-### Paso 2: Ejecución de la Automatización Integral
-Parado en la raíz del proyecto, el flujo completo de validación y pruebas se ejecuta con un solo comando gracias al `Makefile`:
+### Paso 2: Levantar el servidor
+
+```bash
+make run
+```
+
+Este comando:
+1.  levanta PostgreSQL en Docker y espera a que esté lista,
+2.  crea las tablas a partir de `schema.sql`,
+3.  genera el código con sqlc,
+4.  inicia el servidor.
+
+La API queda disponible en **http://localhost:8080**. Para detenerla: `Ctrl + C`.
+
+La aplicación lee la conexión a la base desde la variable de entorno `DATABASE_URL`, que el `makefile` define automáticamente:
+
+```text
+postgres://user:password@localhost:5432/stockapp?sslmode=disable
+```
+
+### Paso 3: Probar la API
+
+Con un solo comando, desde una base limpia:
 
 ```bash
 make test
-# o el comando principal de integración definido en el Makefile
 ```
 
-### ¿Qué realiza este comando de automatización?
-1.  **Generación de código:** Ejecuta `sqlc generate` para actualizar los modelos y consultas Go a partir de los archivos SQL.
-2.  **Limpieza previa:** Detiene y elimina contenedores y volúmenes de Docker anteriores para garantizar un entorno limpio.
-3.  **Levantamiento de infraestructura:** Inicia el contenedor de PostgreSQL mediante Docker Compose.
-4.  **Healthcheck:** Espera activamente a que la base de datos esté lista para aceptar conexiones.
-5.  **Migración de esquemas:** Aplica el archivo `schema.sql` creando las tablas necesarias.
-6.  **Ejecución de pruebas:** Corre la suite completa de tests automatizados de la aplicación.
-7.  **Limpieza final:** Al terminar los tests (según la configuración del Makefile), desmantela los contenedores y volúmenes temporales para dejar el entorno limpio.
+Este comando realiza, en orden:
+
+1.  **Tareas previas:** genera el código con sqlc, compila la aplicación, borra contenedores y volúmenes anteriores, levanta PostgreSQL, espera a que esté lista, crea las tablas y levanta la aplicación.
+2.  **Pruebas:** corre los tests de Go de la capa de datos y luego ejecuta `requests.bash`, que prueba cada endpoint y verifica el código de respuesta.
+3.  **Tareas posteriores:** apaga la aplicación y borra contenedores y volúmenes (aunque alguna prueba falle).
+
+Cada prueba se muestra como `[OK]` o `[FALLA]`, y al final se imprime un resumen:
+
+```text
+Resultado: 28 pasaron, 0 fallaron
+```
+
+También se puede correr `requests.bash` por separado, con el servidor ya levantado (`make run`) y la base recién creada:
+
+```bash
+./requests.bash
+```
+
+### Otros comandos del makefile
+
+| Comando | Descripción |
+|---|---|
+| `make run` | Levanta la base y el servidor |
+| `make test` | Ciclo completo de pruebas sobre una base limpia |
+| `make build` | Genera el código y compila el binario en `tmp/` |
+| `make generate` | Ejecuta `sqlc generate` |
+| `make db-reset` | Borra contenedores y volúmenes (datos incluidos) |
+| `make clean` | Borra la base y los archivos compilados |
+
+---
+
+## 6. Endpoints de la API
+
+Todas las entidades exponen las mismas operaciones CRUD:
+
+| Método | Ruta | Descripción | Respuesta |
+|---|---|---|---|
+| `POST` | `/<entidad>` | Crea un registro a partir de un JSON validado | `201` con el objeto creado · `400` si los datos son inválidos |
+| `GET` | `/<entidad>` | Lista todos los registros | `200` con un array JSON |
+| `GET` | `/<entidad>/{id}` | Obtiene un registro por ID | `200` · `404` si no existe |
+| `PUT` | `/<entidad>/{id}` | Actualiza un registro con datos validados | `200` con el objeto actualizado · `400` · `404` |
+| `DELETE` | `/<entidad>/{id}` | Elimina un registro | `204 No Content` |
+
+Entidades: `categoria`, `producto` y `movimiento_stock`.
+
+### Categoría
+
+```bash
+curl -X POST http://localhost:8080/categoria \
+  -H "Content-Type: application/json" \
+  -d '{"nombre": "Teclados", "padre_id": 1}'
+```
+
+Validaciones: el nombre no puede estar vacío y una categoría no puede ser su propia categoría padre.
+
+### Producto
+
+```bash
+curl -X POST http://localhost:8080/producto \
+  -H "Content-Type: application/json" \
+  -d '{"nombre": "Teclado", "descripcion": "Mecánico", "precio": 45000, "stock": 10, "id_categoria": 2}'
+```
+
+Validaciones: el nombre no puede estar vacío, el precio debe ser mayor a cero y el stock no puede ser negativo.
+
+### Movimiento de stock
+
+```bash
+curl -X POST http://localhost:8080/movimiento_stock \
+  -H "Content-Type: application/json" \
+  -d '{"producto_id": 1, "tipo": "INGRESO", "cantidad": 5, "motivo": "Compra a proveedor"}'
+```
+
+Validaciones: el tipo debe ser `INGRESO` o `EGRESO` y la cantidad debe ser mayor a cero.
+
+### Errores
+
+Los errores de validación responden `400 Bad Request` y los registros inexistentes `404 Not Found`, con un mensaje descriptivo en el cuerpo de la respuesta (por ejemplo, `el precio debe ser mayor a cero`).
+
+El archivo `requests.bash` contiene ejemplos de todas las peticiones probadas, incluyendo los casos de error.
