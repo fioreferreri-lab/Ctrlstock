@@ -1,0 +1,9 @@
+
+# Código generado por sqlc (se genera con make generate)
+db/db.go
+db/models.go
+db/*.sql.go
+
+# Binarios y archivos de compilación
+/ctrlstock
+tmp/
