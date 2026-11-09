@@ -1,0 +1,12 @@
+package views
+
+import "ctrlstock/db"
+
+templ IndexPage(titulo string, productos []db.Producto) {
+	@Layout(titulo, contenido(productos))
+}
+
+templ contenido(productos []db.Producto) {
+	@ProductoForm()
+	@ProductoList(productos)
+}

@@ -1,71 +1,65 @@
-#!/bin/bash
-# Prueba cada endpoint de la API de Ctrlstock y verifica el código de respuesta.
-# Supone una base recién creada (los IDs arrancan en 1).
+#!/usr/bin/env bash
+# Pruebas de la aplicación renderizada en el servidor (SSR).
+# Requiere el servidor corriendo y la base recién creada.
 
-BASE="${BASE:-http://localhost:8080}"
-PASADOS=0
-FALLIDOS=0
-RESP=$(mktemp)
+URL="${APP_URL:-http://localhost:8080}"
+ok=0
+falla=0
 
-# check METODO RUTA CODIGO_ESPERADO [JSON]
-check() {
-    local metodo="$1" ruta="$2" esperado="$3" datos="${4:-}"
-    local codigo
-
-    if [ -n "$datos" ]; then
-        codigo=$(curl -s -o "$RESP" -w "%{http_code}" -X "$metodo" "$BASE$ruta" \
-            -H "Content-Type: application/json" -d "$datos")
+verificar() {
+    local descripcion="$1" esperado="$2" obtenido="$3"
+    if [ "$esperado" == "$obtenido" ]; then
+        echo "[OK]    $descripcion"
+        ok=$((ok + 1))
     else
-        codigo=$(curl -s -o "$RESP" -w "%{http_code}" -X "$metodo" "$BASE$ruta")
-    fi
-
-    if [ "$codigo" = "$esperado" ]; then
-        echo "  [OK]    $metodo $ruta -> $codigo"
-        PASADOS=$((PASADOS + 1))
-    else
-        echo "  [FALLA] $metodo $ruta -> $codigo (esperado: $esperado)"
-        echo "          respuesta: $(head -c 200 "$RESP")"
-        FALLIDOS=$((FALLIDOS + 1))
+        echo "[FALLA] $descripcion (esperaba $esperado, obtuve $obtenido)"
+        falla=$((falla + 1))
     fi
 }
 
-echo "### CATEGORIA"
-check POST   /categoria      201 '{"nombre":"Periféricos"}'
-check POST   /categoria      201 '{"nombre":"Teclados","padre_id":1}'
-check POST   /categoria      400 '{"nombre":"   "}'                                  # nombre vacío
-check GET    /categoria      200
-check GET    /categoria/1    200
-check GET    /categoria/9999 404
-check PUT    /categoria/2    200 '{"nombre":"Teclados mecánicos","padre_id":1}'
-check PUT    /categoria/2    400 '{"nombre":"Teclados","padre_id":2}'                # es su propio padre
-check PUT    /categoria/9999 404 '{"nombre":"X"}'
+# 1. La página principal responde con HTML
+codigo=$(curl -s -o /dev/null -w "%{http_code}" "$URL/")
+verificar "GET / responde 200" "200" "$codigo"
 
-echo "### PRODUCTO"
-check POST   /producto       201 '{"nombre":"Teclado","descripcion":"Mecánico","precio":45000,"stock":10,"id_categoria":2}'
-check POST   /producto       400 '{"nombre":"","precio":10,"stock":1}'               # nombre vacío
-check POST   /producto       400 '{"nombre":"Mouse","precio":0,"stock":1}'           # precio
-check POST   /producto       400 '{"nombre":"Mouse","precio":100,"stock":-1}'        # stock
-check GET    /producto       200
-check GET    /producto/1     200
-check GET    /producto/9999  404
-check PUT    /producto/1     200 '{"nombre":"Teclado RGB","precio":52000,"stock":8,"id_categoria":2}'
-check PUT    /producto/9999  404 '{"nombre":"X","precio":1,"stock":1}'
+tipo=$(curl -s -o /dev/null -w "%{content_type}" "$URL/")
+verificar "GET / devuelve HTML" "text/html; charset=utf-8" "$tipo"
 
-echo "### MOVIMIENTO_STOCK"
-check POST   /movimiento_stock      201 '{"producto_id":1,"tipo":"ingreso","cantidad":5,"motivo":"Compra a proveedor"}'
-check POST   /movimiento_stock      400 '{"producto_id":1,"tipo":"OTRO","cantidad":5,"motivo":"x"}'     # tipo
-check POST   /movimiento_stock      400 '{"producto_id":1,"tipo":"EGRESO","cantidad":0,"motivo":"x"}'   # cantidad
-check GET    /movimiento_stock      200
-check GET    /movimiento_stock/1    200
-check GET    /movimiento_stock/9999 404
+# 2. Con la base vacía se muestra el mensaje correspondiente
+if curl -s "$URL/" | grep -q "Todavía no hay productos"; then vacio="si"; else vacio="no"; fi
+verificar "GET / muestra el mensaje de lista vacía" "si" "$vacio"
 
-echo "### DELETE (primero los que dependen de otros)"
-check DELETE /movimiento_stock/1 204
-check DELETE /producto/1         204
-check DELETE /categoria/2        204
-check DELETE /categoria/1        204
+# 3. Enviar el formulario redirige a / (patrón PRG)
+codigo=$(curl -s -o /dev/null -w "%{http_code}" -X POST "$URL/productos" \
+    --data-urlencode "nombre=Producto de prueba" \
+    --data-urlencode "descripcion=Creado desde requests.bash" \
+    --data-urlencode "precio=1500.50" \
+    --data-urlencode "stock=10" \
+    --data-urlencode "id_categoria=")
+verificar "POST /productos responde 303 (redirect)" "303" "$codigo"
 
-rm -f "$RESP"
+destino=$(curl -s -o /dev/null -w "%{redirect_url}" -X POST "$URL/productos" \
+    --data-urlencode "nombre=Otro producto" \
+    --data-urlencode "precio=200" \
+    --data-urlencode "stock=1")
+verificar "POST /productos redirige a /" "$URL/" "$destino"
+
+# 4. Después del redirect, la lista muestra el producto nuevo
+if curl -s "$URL/" | grep -q "Producto de prueba"; then aparece="si"; else aparece="no"; fi
+verificar "GET / muestra el producto creado" "si" "$aparece"
+
+# 5. Datos inválidos se rechazan
+codigo=$(curl -s -o /dev/null -w "%{http_code}" -X POST "$URL/productos" \
+    --data-urlencode "nombre=Sin precio" \
+    --data-urlencode "precio=0" \
+    --data-urlencode "stock=1")
+verificar "POST /productos con precio 0 responde 400" "400" "$codigo"
+
+codigo=$(curl -s -o /dev/null -w "%{http_code}" -X POST "$URL/productos" \
+    --data-urlencode "nombre=" \
+    --data-urlencode "precio=100" \
+    --data-urlencode "stock=1")
+verificar "POST /productos sin nombre responde 400" "400" "$codigo"
+
 echo
-echo "Resultado: $PASADOS pasaron, $FALLIDOS fallaron"
-[ "$FALLIDOS" -eq 0 ]
+echo "Resultado: $ok pasaron, $falla fallaron"
+[ "$falla" -eq 0 ]

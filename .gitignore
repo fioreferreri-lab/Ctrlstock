@@ -7,3 +7,4 @@ db/*.sql.go
 # Binarios y archivos de compilación
 /ctrlstock
 tmp/
+Ctrlstock/

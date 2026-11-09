@@ -1,0 +1,51 @@
+package views
+
+import (
+	"ctrlstock/db"
+	"fmt"
+)
+
+// ProductoList recibe los productos que devuelve sqlc (ListProductos)
+// y los muestra en una tabla. Si no hay ninguno, muestra un mensaje.
+templ ProductoList(productos []db.Producto) {
+	<section id="seccion-lista">
+		<h2>Inventario</h2>
+		if len(productos) == 0 {
+			<p><em>Todavía no hay productos cargados.</em></p>
+		} else {
+			<div class="overflow-auto">
+				<table>
+					<thead>
+						<tr>
+							<th>ID</th>
+							<th>Nombre</th>
+							<th>Descripción</th>
+							<th>Precio</th>
+							<th>Stock</th>
+						</tr>
+					</thead>
+					<tbody>
+						for _, p := range productos {
+							<tr>
+								<td>{ fmt.Sprint(p.IDProducto) }</td>
+								<td>{ p.Nombre }</td>
+								<td>{ descripcionDe(p) }</td>
+								<td>{ "$ " + p.Precio }</td>
+								<td>{ fmt.Sprint(p.Stock) }</td>
+							</tr>
+						}
+					</tbody>
+				</table>
+			</div>
+		}
+	</section>
+}
+
+// descripcionDe devuelve la descripción, o un guion si está vacía.
+// En la base es opcional (NULL), por eso sqlc la genera como sql.NullString.
+func descripcionDe(p db.Producto) string {
+	if p.Descripcion.Valid && p.Descripcion.String != "" {
+		return p.Descripcion.String
+	}
+	return "—"
+}

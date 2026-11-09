@@ -1,0 +1,29 @@
+package views
+
+// Layout es la estructura base de todas las páginas.
+// Recibe el título de la pestaña y el contenido que va en el medio.
+templ Layout(title string, content templ.Component) {
+	<!DOCTYPE html>
+	<html lang="es">
+		<head>
+			<meta charset="UTF-8"/>
+			<meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+			<title>{ title }</title>
+			<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@picocss/pico@2/css/pico.min.css"/>
+		</head>
+		<body>
+			<header class="container">
+				<h1>CtrlStock</h1>
+				<p>Gestión de inventario de productos</p>
+				<hr/>
+			</header>
+			<main class="container">
+				@content
+			</main>
+			<footer class="container">
+				<hr/>
+				<small>CtrlStock · Programación Web</small>
+			</footer>
+		</body>
+	</html>
+}
