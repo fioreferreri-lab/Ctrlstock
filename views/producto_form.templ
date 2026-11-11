@@ -9,25 +9,27 @@ import (
 // Hace un POST clásico a /producto (sin JavaScript).
 // Recibe las categorías existentes para elegirlas de una lista:
 // así no se puede escribir un ID de una categoría que no existe.
-templ ProductoForm(categorias []db.Categoria) {
+// Recibe también los datos ya escritos y el error, para mostrarlos si algo falló.
+templ ProductoForm(categorias []db.Categoria, datos DatosProductoForm) {
 	<section id="seccion-formulario">
 		<h2>Nuevo producto</h2>
+		@alertaError(datos.Error)
 		<form method="POST" action="/producto">
 			<fieldset>
 				<legend>Datos del producto</legend>
 				<label for="nombre">Nombre *</label>
-				<input type="text" id="nombre" name="nombre" placeholder="Ej: Yerba Mate 1kg" required/>
+				<input type="text" id="nombre" name="nombre" placeholder="Ej: Yerba Mate 1kg" value={ datos.Nombre } required/>
 				<label for="descripcion">Descripción</label>
-				<textarea id="descripcion" name="descripcion" rows="2" placeholder="Opcional"></textarea>
+				<textarea id="descripcion" name="descripcion" rows="2" placeholder="Opcional">{ datos.Descripcion }</textarea>
 				<label for="precio">Precio *</label>
-				<input type="number" id="precio" name="precio" step="0.01" min="0.01" placeholder="0.00" required/>
+				<input type="number" id="precio" name="precio" step="0.01" min="0.01" placeholder="0.00" value={ datos.Precio } required/>
 				<label for="stock">Stock *</label>
-				<input type="number" id="stock" name="stock" min="0" value="0" required/>
+				<input type="number" id="stock" name="stock" min="0" value={ valorOPorDefecto(datos.Stock, "0") } required/>
 				<label for="id_categoria">Categoría *</label>
 				<select id="id_categoria" name="id_categoria" required>
-					<option value="" disabled selected>Elegí una categoría</option>
+					<option value="" disabled selected?={ datos.IDCategoria == "" }>Elegí una categoría</option>
 					for _, c := range categorias {
-						<option value={ fmt.Sprint(c.IDCategoria) }>{ c.Nombre }</option>
+						<option value={ fmt.Sprint(c.IDCategoria) } selected?={ fmt.Sprint(c.IDCategoria) == datos.IDCategoria }>{ c.Nombre }</option>
 					}
 				</select>
 				if len(categorias) == 0 {

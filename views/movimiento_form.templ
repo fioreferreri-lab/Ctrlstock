@@ -7,9 +7,11 @@ import (
 
 // MovimientoForm muestra el formulario para registrar un movimiento de stock.
 // Recibe los productos para poder elegir a cuál se le aplica el movimiento.
-templ MovimientoForm(productos []db.Producto) {
+// Recibe también los datos ya escritos y el error, para mostrarlos si algo falló.
+templ MovimientoForm(productos []db.Producto, datos DatosMovimientoForm) {
 	<section id="seccion-form-movimiento">
 		<h2>Nuevo movimiento</h2>
+		@alertaError(datos.Error)
 		if len(productos) == 0 {
 			<p><em>Cargá al menos un producto antes de registrar movimientos.</em></p>
 		} else {
@@ -17,27 +19,26 @@ templ MovimientoForm(productos []db.Producto) {
 				<label>
 					Producto
 					<select name="producto_id" required>
-						<option value="" disabled selected>Elegí un producto</option>
+						<option value="" disabled selected?={ datos.ProductoID == "" }>Elegí un producto</option>
 						for _, p := range productos {
-							<option value={ fmt.Sprint(p.IDProducto) }>{ p.Nombre }</option>
+							<option value={ fmt.Sprint(p.IDProducto) } selected?={ fmt.Sprint(p.IDProducto) == datos.ProductoID }>{ p.Nombre }</option>
 						}
 					</select>
 				</label>
 				<label>
 					Tipo
 					<select name="tipo" required>
-						<option value="entrada">Entrada</option>
-						<option value="salida">Salida</option>
-						<option value="ajuste">Ajuste</option>
+						<option value="INGRESO" selected?={ datos.Tipo != "EGRESO" }>Ingreso</option>
+						<option value="EGRESO" selected?={ datos.Tipo == "EGRESO" }>Egreso</option>
 					</select>
 				</label>
 				<label>
 					Cantidad
-					<input type="number" name="cantidad" min="1" step="1" required/>
+					<input type="number" name="cantidad" min="1" step="1" value={ datos.Cantidad } required/>
 				</label>
 				<label>
 					Motivo
-					<input type="text" name="motivo" maxlength="100" required/>
+					<input type="text" name="motivo" maxlength="100" value={ datos.Motivo } required/>
 				</label>
 				<button type="submit">Registrar movimiento</button>
 			</form>

@@ -3,6 +3,7 @@ package handlers
 import (
 	"database/sql"
 	"errors"
+	"log"
 	"net/http"
 	"strconv"
 	"strings"
@@ -47,8 +48,14 @@ func (s *Server) CategoriasHandler(w http.ResponseWriter, r *http.Request) {
 	}
 }
 
-// listCategorias obtiene las categorías y renderiza la vista HTML con Templ
+// listCategorias muestra la página de categorías con el formulario vacío (GET /categoria).
 func (s *Server) listCategorias(w http.ResponseWriter, r *http.Request) {
+	s.renderCategorias(w, r, http.StatusOK, views.DatosCategoriaForm{})
+}
+
+// renderCategorias arma la página de categorías. Se usa al entrar (formulario vacío)
+// y cuando el formulario tuvo un error (con los datos escritos y el mensaje).
+func (s *Server) renderCategorias(w http.ResponseWriter, r *http.Request, status int, form views.DatosCategoriaForm) {
 	lista, err := logic.ListarCategorias(r.Context(), s.Queries)
 	if err != nil {
 		http.Error(w, "Error al listar las categorías", http.StatusInternalServerError)
@@ -56,23 +63,33 @@ func (s *Server) listCategorias(w http.ResponseWriter, r *http.Request) {
 	}
 
 	w.Header().Set("Content-Type", "text/html; charset=utf-8")
-
-	if err := views.CategoriaIndexPage("Categorías", lista).Render(r.Context(), w); err != nil {
-		http.Error(w, "Error al renderizar la vista", http.StatusInternalServerError)
+	w.WriteHeader(status)
+	if err := views.CategoriaIndexPage("Categorías", lista, form).Render(r.Context(), w); err != nil {
+		log.Printf("error al renderizar categorías: %v", err)
 	}
 }
 
 // createCategoria procesa el formulario HTML clásico para dar de alta una categoría
 func (s *Server) createCategoria(w http.ResponseWriter, r *http.Request) {
 	if err := r.ParseForm(); err != nil {
-		http.Error(w, "Formulario inválido", http.StatusBadRequest)
+		s.renderCategorias(w, r, http.StatusBadRequest, views.DatosCategoriaForm{Error: "el formulario es inválido"})
 		return
+	}
+
+	// Lo que escribió el usuario: si algo falla, se lo devolvemos para que corrija
+	form := views.DatosCategoriaForm{
+		Nombre:  r.FormValue("nombre"),
+		PadreID: r.FormValue("padre_id"),
+	}
+	mostrarError := func(err error) {
+		form.Error = err.Error()
+		s.renderCategorias(w, r, http.StatusBadRequest, form)
 	}
 
 	// Chequeo básico: que la categoría padre, si viene, sea un número
 	padreID, err := leerEnteroOpcional(r, "padre_id", "La categoría padre")
 	if err != nil {
-		http.Error(w, err.Error(), http.StatusBadRequest)
+		mostrarError(err)
 		return
 	}
 
@@ -81,9 +98,8 @@ func (s *Server) createCategoria(w http.ResponseWriter, r *http.Request) {
 		PadreID: toNullInt32(padreID), // Utiliza el helper centralizado en utils.go
 	}
 
-	_, err = logic.CrearCategoria(r.Context(), s.Queries, params)
-	if err != nil {
-		http.Error(w, err.Error(), http.StatusBadRequest)
+	if _, err := logic.CrearCategoria(r.Context(), s.Queries, params); err != nil {
+		mostrarError(err)
 		return
 	}
 

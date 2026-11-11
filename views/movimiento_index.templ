@@ -2,11 +2,11 @@ package views
 
 import "ctrlstock/db"
 
-templ MovimientoIndexPage(titulo string, movimientos []db.MovimientoStock, productos []db.Producto) {
-	@Layout(titulo, movimientoContenido(movimientos, productos))
+templ MovimientoIndexPage(titulo string, movimientos []db.MovimientoStock, productos []db.Producto, form DatosMovimientoForm) {
+	@Layout(titulo, movimientoContenido(movimientos, productos, form))
 }
 
-templ movimientoContenido(movimientos []db.MovimientoStock, productos []db.Producto) {
-	@MovimientoForm(productos)
+templ movimientoContenido(movimientos []db.MovimientoStock, productos []db.Producto, form DatosMovimientoForm) {
+	@MovimientoForm(productos, form)
 	@MovimientoList(movimientos, productos)
 }

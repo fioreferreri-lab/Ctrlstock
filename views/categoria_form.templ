@@ -7,20 +7,22 @@ import (
 
 // CategoriaForm muestra el formulario para crear una categoría.
 // Recibe todas las categorías para poder elegir una como padre (opcional).
-templ CategoriaForm(categorias []db.Categoria) {
+// Recibe también los datos ya escritos y el error, para mostrarlos si algo falló.
+templ CategoriaForm(categorias []db.Categoria, datos DatosCategoriaForm) {
 	<section id="seccion-form-categoria">
 		<h2>Nueva categoría</h2>
+		@alertaError(datos.Error)
 		<form method="post" action="/categoria">
 			<label>
 				Nombre
-				<input type="text" name="nombre" maxlength="100" required/>
+				<input type="text" name="nombre" maxlength="100" value={ datos.Nombre } required/>
 			</label>
 			<label>
 				Categoría padre (opcional)
 				<select name="padre_id">
-					<option value="">— Ninguna (categoría raíz) —</option>
+					<option value="" selected?={ datos.PadreID == "" }>— Ninguna (categoría raíz) —</option>
 					for _, c := range categorias {
-						<option value={ fmt.Sprint(c.IDCategoria) }>{ c.Nombre }</option>
+						<option value={ fmt.Sprint(c.IDCategoria) } selected?={ fmt.Sprint(c.IDCategoria) == datos.PadreID }>{ c.Nombre }</option>
 					}
 				</select>
 			</label>

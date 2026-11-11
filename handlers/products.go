@@ -2,6 +2,7 @@ package handlers
 
 import (
 	"fmt"
+	"log"
 	"net/http"
 	"strconv"
 	"strings"
@@ -47,8 +48,14 @@ func (s *Server) ProductosHandler(w http.ResponseWriter, r *http.Request) {
 	}
 }
 
-// listProductos renderiza la vista HTML principal usando Templ
+// listProductos muestra la página de productos con el formulario vacío (GET /producto).
 func (s *Server) listProductos(w http.ResponseWriter, r *http.Request) {
+	s.renderProductos(w, r, http.StatusOK, views.DatosProductoForm{})
+}
+
+// renderProductos arma la página de productos. Se usa al entrar (formulario vacío)
+// y cuando el formulario tuvo un error (con los datos escritos y el mensaje).
+func (s *Server) renderProductos(w http.ResponseWriter, r *http.Request, status int, form views.DatosProductoForm) {
 	// 1. Obtenemos datos desde la capa lógica
 	lista, err := logic.ListarProductos(r.Context(), s.Queries)
 	if err != nil {
@@ -65,8 +72,9 @@ func (s *Server) listProductos(w http.ResponseWriter, r *http.Request) {
 
 	// 2. TP5: Renderizamos el HTML con Templ
 	w.Header().Set("Content-Type", "text/html; charset=utf-8")
-	if err := views.IndexPage("Inventario de Productos", lista, categorias).Render(r.Context(), w); err != nil {
-		http.Error(w, "Error al renderizar la vista", http.StatusInternalServerError)
+	w.WriteHeader(status)
+	if err := views.IndexPage("Inventario de Productos", lista, categorias, form).Render(r.Context(), w); err != nil {
+		log.Printf("error al renderizar productos: %v", err)
 	}
 }
 
@@ -74,24 +82,37 @@ func (s *Server) listProductos(w http.ResponseWriter, r *http.Request) {
 func (s *Server) createProducto(w http.ResponseWriter, r *http.Request) {
 	// 1. Parseamos el formulario clásico enviado por el navegador
 	if err := r.ParseForm(); err != nil {
-		http.Error(w, "Formulario inválido", http.StatusBadRequest)
+		s.renderProductos(w, r, http.StatusBadRequest, views.DatosProductoForm{Error: "el formulario es inválido"})
 		return
+	}
+
+	// Lo que escribió el usuario: si algo falla, se lo devolvemos para que corrija
+	form := views.DatosProductoForm{
+		Nombre:      r.FormValue("nombre"),
+		Descripcion: r.FormValue("descripcion"),
+		Precio:      r.FormValue("precio"),
+		Stock:       r.FormValue("stock"),
+		IDCategoria: r.FormValue("id_categoria"),
+	}
+	mostrarError := func(err error) {
+		form.Error = err.Error()
+		s.renderProductos(w, r, http.StatusBadRequest, form)
 	}
 
 	// Chequeo básico: que los campos numéricos sean números
 	precio, err := leerDecimal(r, "precio", "El precio")
 	if err != nil {
-		http.Error(w, err.Error(), http.StatusBadRequest)
+		mostrarError(err)
 		return
 	}
 	stock, err := leerEntero(r, "stock", "El stock")
 	if err != nil {
-		http.Error(w, err.Error(), http.StatusBadRequest)
+		mostrarError(err)
 		return
 	}
 	idCategoria, err := leerEnteroOpcional(r, "id_categoria", "La categoría")
 	if err != nil {
-		http.Error(w, err.Error(), http.StatusBadRequest)
+		mostrarError(err)
 		return
 	}
 
@@ -105,9 +126,8 @@ func (s *Server) createProducto(w http.ResponseWriter, r *http.Request) {
 	}
 
 	// 2. Delegamos validación y guardado a la capa lógica
-	_, err = logic.CrearProducto(r.Context(), s.Queries, params)
-	if err != nil {
-		http.Error(w, err.Error(), http.StatusBadRequest)
+	if _, err := logic.CrearProducto(r.Context(), s.Queries, params); err != nil {
+		mostrarError(err)
 		return
 	}
 

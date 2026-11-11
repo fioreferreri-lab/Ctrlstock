@@ -2,11 +2,11 @@ package views
 
 import "ctrlstock/db"
 
-templ IndexPage(titulo string, productos []db.Producto, categorias []db.Categoria) {
-	@Layout(titulo, contenido(productos, categorias))
+templ IndexPage(titulo string, productos []db.Producto, categorias []db.Categoria, form DatosProductoForm) {
+	@Layout(titulo, contenido(productos, categorias, form))
 }
 
-templ contenido(productos []db.Producto, categorias []db.Categoria) {
-	@ProductoForm(categorias)
+templ contenido(productos []db.Producto, categorias []db.Categoria, form DatosProductoForm) {
+	@ProductoForm(categorias, form)
 	@ProductoList(productos)
 }

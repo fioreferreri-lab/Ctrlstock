@@ -11,7 +11,7 @@ import templruntime "github.com/a-h/templ/runtime"
 
 import "ctrlstock/db"
 
-func MovimientoIndexPage(titulo string, movimientos []db.MovimientoStock, productos []db.Producto) templ.Component {
+func MovimientoIndexPage(titulo string, movimientos []db.MovimientoStock, productos []db.Producto, form DatosMovimientoForm) templ.Component {
 	return templruntime.GeneratedTemplate(func(templ_7745c5c3_Input templruntime.GeneratedComponentInput) (templ_7745c5c3_Err error) {
 		templ_7745c5c3_W, ctx := templ_7745c5c3_Input.Writer, templ_7745c5c3_Input.Context
 		if templ_7745c5c3_CtxErr := ctx.Err(); templ_7745c5c3_CtxErr != nil {
@@ -28,7 +28,7 @@ func MovimientoIndexPage(titulo string, movimientos []db.MovimientoStock, produc
 		}
 		ctx = templ.InitializeContext(ctx)
 		ctx = templ.ClearChildren(ctx)
-		templ_7745c5c3_Err = Layout(titulo, movimientoContenido(movimientos, productos)).Render(ctx, templ_7745c5c3_Buffer)
+		templ_7745c5c3_Err = Layout(titulo, movimientoContenido(movimientos, productos, form)).Render(ctx, templ_7745c5c3_Buffer)
 		if templ_7745c5c3_Err != nil {
 			return templ_7745c5c3_Err
 		}
@@ -36,7 +36,7 @@ func MovimientoIndexPage(titulo string, movimientos []db.MovimientoStock, produc
 	})
 }
 
-func movimientoContenido(movimientos []db.MovimientoStock, productos []db.Producto) templ.Component {
+func movimientoContenido(movimientos []db.MovimientoStock, productos []db.Producto, form DatosMovimientoForm) templ.Component {
 	return templruntime.GeneratedTemplate(func(templ_7745c5c3_Input templruntime.GeneratedComponentInput) (templ_7745c5c3_Err error) {
 		templ_7745c5c3_W, ctx := templ_7745c5c3_Input.Writer, templ_7745c5c3_Input.Context
 		if templ_7745c5c3_CtxErr := ctx.Err(); templ_7745c5c3_CtxErr != nil {
@@ -53,7 +53,7 @@ func movimientoContenido(movimientos []db.MovimientoStock, productos []db.Produc
 		}
 		ctx = templ.InitializeContext(ctx)
 		ctx = templ.ClearChildren(ctx)
-		templ_7745c5c3_Err = MovimientoForm(productos).Render(ctx, templ_7745c5c3_Buffer)
+		templ_7745c5c3_Err = MovimientoForm(productos, form).Render(ctx, templ_7745c5c3_Buffer)
 		if templ_7745c5c3_Err != nil {
 			return templ_7745c5c3_Err
 		}

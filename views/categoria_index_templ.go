@@ -11,7 +11,7 @@ import templruntime "github.com/a-h/templ/runtime"
 
 import "ctrlstock/db"
 
-func CategoriaIndexPage(titulo string, categorias []db.Categoria) templ.Component {
+func CategoriaIndexPage(titulo string, categorias []db.Categoria, form DatosCategoriaForm) templ.Component {
 	return templruntime.GeneratedTemplate(func(templ_7745c5c3_Input templruntime.GeneratedComponentInput) (templ_7745c5c3_Err error) {
 		templ_7745c5c3_W, ctx := templ_7745c5c3_Input.Writer, templ_7745c5c3_Input.Context
 		if templ_7745c5c3_CtxErr := ctx.Err(); templ_7745c5c3_CtxErr != nil {
@@ -28,7 +28,7 @@ func CategoriaIndexPage(titulo string, categorias []db.Categoria) templ.Componen
 		}
 		ctx = templ.InitializeContext(ctx)
 		ctx = templ.ClearChildren(ctx)
-		templ_7745c5c3_Err = Layout(titulo, categoriaContenido(categorias)).Render(ctx, templ_7745c5c3_Buffer)
+		templ_7745c5c3_Err = Layout(titulo, categoriaContenido(categorias, form)).Render(ctx, templ_7745c5c3_Buffer)
 		if templ_7745c5c3_Err != nil {
 			return templ_7745c5c3_Err
 		}
@@ -36,7 +36,7 @@ func CategoriaIndexPage(titulo string, categorias []db.Categoria) templ.Componen
 	})
 }
 
-func categoriaContenido(categorias []db.Categoria) templ.Component {
+func categoriaContenido(categorias []db.Categoria, form DatosCategoriaForm) templ.Component {
 	return templruntime.GeneratedTemplate(func(templ_7745c5c3_Input templruntime.GeneratedComponentInput) (templ_7745c5c3_Err error) {
 		templ_7745c5c3_W, ctx := templ_7745c5c3_Input.Writer, templ_7745c5c3_Input.Context
 		if templ_7745c5c3_CtxErr := ctx.Err(); templ_7745c5c3_CtxErr != nil {
@@ -53,7 +53,7 @@ func categoriaContenido(categorias []db.Categoria) templ.Component {
 		}
 		ctx = templ.InitializeContext(ctx)
 		ctx = templ.ClearChildren(ctx)
-		templ_7745c5c3_Err = CategoriaForm(categorias).Render(ctx, templ_7745c5c3_Buffer)
+		templ_7745c5c3_Err = CategoriaForm(categorias, form).Render(ctx, templ_7745c5c3_Buffer)
 		if templ_7745c5c3_Err != nil {
 			return templ_7745c5c3_Err
 		}

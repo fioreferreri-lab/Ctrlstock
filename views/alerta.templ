@@ -1,0 +1,14 @@
+package views
+
+// alertaError muestra un cartel arriba del formulario explicando por qué
+// no se pudo guardar. Si no hay error, no muestra nada.
+templ alertaError(mensaje string) {
+	if mensaje != "" {
+		<div
+			role="alert"
+			style="background: #fdecec; border-left: 4px solid #c62828; color: #7f1d1d; padding: 0.75rem 1rem; margin-bottom: 1rem; border-radius: 0.25rem;"
+		>
+			<strong>No se pudo guardar.</strong> { capitalizar(mensaje) }.
+		</div>
+	}
+}

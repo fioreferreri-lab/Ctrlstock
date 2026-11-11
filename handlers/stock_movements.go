@@ -1,6 +1,7 @@
 package handlers
 
 import (
+	"log"
 	"net/http"
 	"strconv"
 	"strings"
@@ -42,8 +43,14 @@ func (s *Server) MovimientosHandler(w http.ResponseWriter, r *http.Request) {
 	}
 }
 
-// listMovimientos obtiene el historial y renderiza la vista HTML con Templ
+// listMovimientos muestra la página de movimientos con el formulario vacío (GET /movimiento_stock).
 func (s *Server) listMovimientos(w http.ResponseWriter, r *http.Request) {
+	s.renderMovimientos(w, r, http.StatusOK, views.DatosMovimientoForm{})
+}
+
+// renderMovimientos arma la página de movimientos. Se usa al entrar (formulario vacío)
+// y cuando el formulario tuvo un error (con los datos escritos y el mensaje).
+func (s *Server) renderMovimientos(w http.ResponseWriter, r *http.Request, status int, form views.DatosMovimientoForm) {
 	movimientos, err := logic.ListarMovimientos(r.Context(), s.Queries)
 	if err != nil {
 		http.Error(w, "Error al listar los movimientos de stock", http.StatusInternalServerError)
@@ -57,27 +64,40 @@ func (s *Server) listMovimientos(w http.ResponseWriter, r *http.Request) {
 	}
 
 	w.Header().Set("Content-Type", "text/html; charset=utf-8")
-	if err := views.MovimientoList(movimientos, productos).Render(r.Context(), w); err != nil {
-		http.Error(w, "Error al renderizar la vista", http.StatusInternalServerError)
+	w.WriteHeader(status)
+	if err := views.MovimientoIndexPage("Movimientos de stock", movimientos, productos, form).Render(r.Context(), w); err != nil {
+		log.Printf("error al renderizar movimientos: %v", err)
 	}
 }
 
 // createMovimiento procesa el formulario clásico para registrar un movimiento
 func (s *Server) createMovimiento(w http.ResponseWriter, r *http.Request) {
 	if err := r.ParseForm(); err != nil {
-		http.Error(w, "Formulario inválido", http.StatusBadRequest)
+		s.renderMovimientos(w, r, http.StatusBadRequest, views.DatosMovimientoForm{Error: "el formulario es inválido"})
 		return
+	}
+
+	// Lo que escribió el usuario: si algo falla, se lo devolvemos para que corrija
+	form := views.DatosMovimientoForm{
+		ProductoID: r.FormValue("producto_id"),
+		Tipo:       r.FormValue("tipo"),
+		Cantidad:   r.FormValue("cantidad"),
+		Motivo:     r.FormValue("motivo"),
+	}
+	mostrarError := func(err error) {
+		form.Error = err.Error()
+		s.renderMovimientos(w, r, http.StatusBadRequest, form)
 	}
 
 	// Chequeo básico: que los campos numéricos sean números
 	productoID, err := leerEntero(r, "producto_id", "El producto")
 	if err != nil {
-		http.Error(w, err.Error(), http.StatusBadRequest)
+		mostrarError(err)
 		return
 	}
 	cantidad, err := leerEntero(r, "cantidad", "La cantidad")
 	if err != nil {
-		http.Error(w, err.Error(), http.StatusBadRequest)
+		mostrarError(err)
 		return
 	}
 
@@ -88,9 +108,8 @@ func (s *Server) createMovimiento(w http.ResponseWriter, r *http.Request) {
 		Motivo:     strings.TrimSpace(r.FormValue("motivo")),
 	}
 
-	_, err = logic.CrearMovimiento(r.Context(), s.Queries, params)
-	if err != nil {
-		http.Error(w, err.Error(), http.StatusBadRequest)
+	if _, err := logic.CrearMovimiento(r.Context(), s.Queries, params); err != nil {
+		mostrarError(err)
 		return
 	}
 

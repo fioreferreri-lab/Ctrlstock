@@ -2,11 +2,11 @@ package views
 
 import "ctrlstock/db"
 
-templ CategoriaIndexPage(titulo string, categorias []db.Categoria) {
-	@Layout(titulo, categoriaContenido(categorias))
+templ CategoriaIndexPage(titulo string, categorias []db.Categoria, form DatosCategoriaForm) {
+	@Layout(titulo, categoriaContenido(categorias, form))
 }
 
-templ categoriaContenido(categorias []db.Categoria) {
-	@CategoriaForm(categorias)
+templ categoriaContenido(categorias []db.Categoria, form DatosCategoriaForm) {
+	@CategoriaForm(categorias, form)
 	@CategoriaList(categorias)
 }
