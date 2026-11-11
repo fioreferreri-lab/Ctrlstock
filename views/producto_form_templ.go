@@ -9,9 +9,16 @@ package views
 import "github.com/a-h/templ"
 import templruntime "github.com/a-h/templ/runtime"
 
+import (
+	"ctrlstock/db"
+	"fmt"
+)
+
 // ProductoForm renderiza el formulario de alta.
-// Hace un POST clásico a /productos (sin JavaScript).
-func ProductoForm() templ.Component {
+// Hace un POST clásico a /producto (sin JavaScript).
+// Recibe las categorías existentes para elegirlas de una lista:
+// así no se puede escribir un ID de una categoría que no existe.
+func ProductoForm(categorias []db.Categoria) templ.Component {
 	return templruntime.GeneratedTemplate(func(templ_7745c5c3_Input templruntime.GeneratedComponentInput) (templ_7745c5c3_Err error) {
 		templ_7745c5c3_W, ctx := templ_7745c5c3_Input.Writer, templ_7745c5c3_Input.Context
 		if templ_7745c5c3_CtxErr := ctx.Err(); templ_7745c5c3_CtxErr != nil {
@@ -28,7 +35,53 @@ func ProductoForm() templ.Component {
 		}
 		ctx = templ.InitializeContext(ctx)
 		ctx = templ.ClearChildren(ctx)
-		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 1, "<section id=\"seccion-formulario\"><h2>Nuevo producto</h2><form method=\"POST\" action=\"/producto\"><fieldset><legend>Datos del producto</legend> <label for=\"nombre\">Nombre *</label> <input type=\"text\" id=\"nombre\" name=\"nombre\" placeholder=\"Ej: Yerba Mate 1kg\" required> <label for=\"descripcion\">Descripción</label> <textarea id=\"descripcion\" name=\"descripcion\" rows=\"2\" placeholder=\"Opcional\"></textarea> <label for=\"precio\">Precio *</label> <input type=\"number\" id=\"precio\" name=\"precio\" step=\"0.01\" min=\"0.01\" placeholder=\"0.00\" required> <label for=\"stock\">Stock *</label> <input type=\"number\" id=\"stock\" name=\"stock\" min=\"0\" value=\"0\" required> <label for=\"id_categoria\">ID de categoría</label> <input type=\"number\" id=\"id_categoria\" name=\"id_categoria\" min=\"1\" placeholder=\"Opcional\"> <small>* Campos obligatorios</small></fieldset><button type=\"submit\">Agregar producto</button></form></section>")
+		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 1, "<section id=\"seccion-formulario\"><h2>Nuevo producto</h2><form method=\"POST\" action=\"/producto\"><fieldset><legend>Datos del producto</legend> <label for=\"nombre\">Nombre *</label> <input type=\"text\" id=\"nombre\" name=\"nombre\" placeholder=\"Ej: Yerba Mate 1kg\" required> <label for=\"descripcion\">Descripción</label> <textarea id=\"descripcion\" name=\"descripcion\" rows=\"2\" placeholder=\"Opcional\"></textarea> <label for=\"precio\">Precio *</label> <input type=\"number\" id=\"precio\" name=\"precio\" step=\"0.01\" min=\"0.01\" placeholder=\"0.00\" required> <label for=\"stock\">Stock *</label> <input type=\"number\" id=\"stock\" name=\"stock\" min=\"0\" value=\"0\" required> <label for=\"id_categoria\">Categoría *</label> <select id=\"id_categoria\" name=\"id_categoria\" required><option value=\"\" disabled selected>Elegí una categoría</option> ")
+		if templ_7745c5c3_Err != nil {
+			return templ_7745c5c3_Err
+		}
+		for _, c := range categorias {
+			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 2, "<option value=\"")
+			if templ_7745c5c3_Err != nil {
+				return templ_7745c5c3_Err
+			}
+			var templ_7745c5c3_Var2 string
+			templ_7745c5c3_Var2, templ_7745c5c3_Err = templruntime.NewAttributeExpression(fmt.Sprint(c.IDCategoria)).Resolve(ctx)
+			if templ_7745c5c3_Err != nil {
+				return templ.Error{Err: templ_7745c5c3_Err, FileName: `views/producto_form.templ`, Line: 30, Col: 47}
+			}
+			_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ_7745c5c3_Var2)
+			if templ_7745c5c3_Err != nil {
+				return templ_7745c5c3_Err
+			}
+			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 3, "\">")
+			if templ_7745c5c3_Err != nil {
+				return templ_7745c5c3_Err
+			}
+			var templ_7745c5c3_Var3 string
+			templ_7745c5c3_Var3, templ_7745c5c3_Err = templ.JoinStringErrs(c.Nombre)
+			if templ_7745c5c3_Err != nil {
+				return templ.Error{Err: templ_7745c5c3_Err, FileName: `views/producto_form.templ`, Line: 30, Col: 60}
+			}
+			_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var3))
+			if templ_7745c5c3_Err != nil {
+				return templ_7745c5c3_Err
+			}
+			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 4, "</option>")
+			if templ_7745c5c3_Err != nil {
+				return templ_7745c5c3_Err
+			}
+		}
+		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 5, "</select> ")
+		if templ_7745c5c3_Err != nil {
+			return templ_7745c5c3_Err
+		}
+		if len(categorias) == 0 {
+			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 6, "<small>Todavía no hay categorías. Creá una en <a href=\"/categoria\">Categorías</a> antes de cargar productos.</small> ")
+			if templ_7745c5c3_Err != nil {
+				return templ_7745c5c3_Err
+			}
+		}
+		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 7, "<small>* Campos obligatorios</small></fieldset><button type=\"submit\">Agregar producto</button></form></section>")
 		if templ_7745c5c3_Err != nil {
 			return templ_7745c5c3_Err
 		}

@@ -1,8 +1,15 @@
 package views
 
+import (
+	"ctrlstock/db"
+	"fmt"
+)
+
 // ProductoForm renderiza el formulario de alta.
-// Hace un POST clásico a /productos (sin JavaScript).
-templ ProductoForm() {
+// Hace un POST clásico a /producto (sin JavaScript).
+// Recibe las categorías existentes para elegirlas de una lista:
+// así no se puede escribir un ID de una categoría que no existe.
+templ ProductoForm(categorias []db.Categoria) {
 	<section id="seccion-formulario">
 		<h2>Nuevo producto</h2>
 		<form method="POST" action="/producto">
@@ -16,8 +23,16 @@ templ ProductoForm() {
 				<input type="number" id="precio" name="precio" step="0.01" min="0.01" placeholder="0.00" required/>
 				<label for="stock">Stock *</label>
 				<input type="number" id="stock" name="stock" min="0" value="0" required/>
-				<label for="id_categoria">ID de categoría</label>
-				<input type="number" id="id_categoria" name="id_categoria" min="1" placeholder="Opcional"/>
+				<label for="id_categoria">Categoría *</label>
+				<select id="id_categoria" name="id_categoria" required>
+					<option value="" disabled selected>Elegí una categoría</option>
+					for _, c := range categorias {
+						<option value={ fmt.Sprint(c.IDCategoria) }>{ c.Nombre }</option>
+					}
+				</select>
+				if len(categorias) == 0 {
+					<small>Todavía no hay categorías. Creá una en <a href="/categoria">Categorías</a> antes de cargar productos.</small>
+				}
 				<small>* Campos obligatorios</small>
 			</fieldset>
 			<button type="submit">Agregar producto</button>

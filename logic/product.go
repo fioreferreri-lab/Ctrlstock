@@ -3,9 +3,16 @@ package logic
 import (
 	"context"
 	"ctrlstock/db"
+	"database/sql"
 	"errors"
 	"fmt"
 	"strings"
+)
+
+// Errores de la regla "todo producto debe pertenecer a una categoría existente".
+var (
+	ErrCategoriaObligatoria = errors.New("el producto debe tener una categoría")
+	ErrCategoriaInexistente = errors.New("la categoría seleccionada no existe")
 )
 
 // ValidateProducto aplica reglas de negocio a un producto.
@@ -22,6 +29,21 @@ func ValidateProducto(nombre string, precio float64, stock int32) error {
 	return nil
 }
 
+// validarCategoriaDeProducto aplica la regla de negocio: no se permiten productos
+// huérfanos. La categoría es obligatoria y tiene que existir en la base.
+func validarCategoriaDeProducto(ctx context.Context, queries *db.Queries, idCategoria sql.NullInt32) error {
+	if !idCategoria.Valid {
+		return ErrCategoriaObligatoria
+	}
+	if _, err := queries.GetCategoriaByID(ctx, idCategoria.Int32); err != nil {
+		if errors.Is(err, sql.ErrNoRows) {
+			return ErrCategoriaInexistente
+		}
+		return fmt.Errorf("error al verificar la categoría: %w", err)
+	}
+	return nil
+}
+
 // CrearProducto centraliza la validación y la inserción en la base de datos.
 func CrearProducto(ctx context.Context, queries *db.Queries, params db.CreateProductoParams) (db.Producto, error) {
 	// Parseamos el string del precio (db.CreateProductoParams usa string para DECIMAL) a float64 para validarlo
@@ -30,6 +52,9 @@ func CrearProducto(ctx context.Context, queries *db.Queries, params db.CreatePro
 
 	// 1. Validaciones importantes (Regla de negocio)
 	if err := ValidateProducto(params.Nombre, precioFloat, params.Stock); err != nil {
+		return db.Producto{}, err
+	}
+	if err := validarCategoriaDeProducto(ctx, queries, params.IDCategoria); err != nil {
 		return db.Producto{}, err
 	}
 
@@ -70,6 +95,9 @@ func ActualizarProducto(ctx context.Context, queries *db.Queries, params db.Upda
 
 	// 1. Validaciones importantes (Regla de negocio)
 	if err := ValidateProducto(params.Nombre, precioFloat, params.Stock); err != nil {
+		return db.Producto{}, err
+	}
+	if err := validarCategoriaDeProducto(ctx, queries, params.IDCategoria); err != nil {
 		return db.Producto{}, err
 	}
 

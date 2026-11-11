@@ -56,9 +56,16 @@ func (s *Server) listProductos(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	// Las categorías existentes, para el desplegable del formulario
+	categorias, err := logic.ListarCategorias(r.Context(), s.Queries)
+	if err != nil {
+		http.Error(w, "Error al obtener las categorías", http.StatusInternalServerError)
+		return
+	}
+
 	// 2. TP5: Renderizamos el HTML con Templ
 	w.Header().Set("Content-Type", "text/html; charset=utf-8")
-	if err := views.IndexPage("Inventario de Productos", lista).Render(r.Context(), w); err != nil {
+	if err := views.IndexPage("Inventario de Productos", lista, categorias).Render(r.Context(), w); err != nil {
 		http.Error(w, "Error al renderizar la vista", http.StatusInternalServerError)
 	}
 }

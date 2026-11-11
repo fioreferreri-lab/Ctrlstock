@@ -21,6 +21,7 @@ INSERT INTO categoria (nombre, padre_id)
 VALUES ($1, $2)
 RETURNING *;
 
+
 -- name: UpdateCategoria :one
 UPDATE categoria
 SET nombre = $1, padre_id = $2
