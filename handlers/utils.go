@@ -11,8 +11,11 @@ import (
 )
 
 // Server agrupa las dependencias que necesitan los handlers.
+// DB es la conexión: se usa para las operaciones que necesitan una transacción
+// (por ejemplo, registrar un movimiento y actualizar el stock juntos).
 type Server struct {
 	Queries *db.Queries
+	DB      *sql.DB
 }
 
 func toNullString(s string) sql.NullString {

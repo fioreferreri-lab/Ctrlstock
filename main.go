@@ -43,6 +43,7 @@ func main() {
 	// 2. Instanciamos el Server de tu paquete handlers
 	app := &handlers.Server{
 		Queries: queries,
+		DB:      conn,
 	}
 
 	mux := http.NewServeMux()

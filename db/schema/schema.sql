@@ -20,8 +20,12 @@ CREATE TABLE producto (
     precio DECIMAL(10,2) NOT NULL,
     stock INT NOT NULL DEFAULT 0,
     id_categoria INT NULL,
-    CONSTRAINT PRODUCTO_CATEGORIA_fk FOREIGN KEY (id_categoria) REFERENCES categoria(id_categoria) ON DELETE SET NULL
+    -- RESTRICT: no se puede borrar una categoría que todavía tiene productos (evita productos huérfanos)
+    CONSTRAINT PRODUCTO_CATEGORIA_fk FOREIGN KEY (id_categoria) REFERENCES categoria(id_categoria) ON DELETE RESTRICT
 );
+
+-- No puede haber dos productos con el mismo nombre (sin distinguir mayúsculas)
+CREATE UNIQUE INDEX producto_nombre_unico ON producto (LOWER(nombre));
 
 CREATE TABLE movimiento_stock (
     id_movimiento SERIAL PRIMARY KEY,
@@ -30,5 +34,6 @@ CREATE TABLE movimiento_stock (
     cantidad INT NOT NULL,
     motivo VARCHAR(100) NOT NULL,
     fecha TIMESTAMP NOT NULL DEFAULT NOW(),
-    CONSTRAINT MOVIMIENTO_STOCK_PRODUCTO_fk FOREIGN KEY (producto_id) REFERENCES producto(id_producto) ON DELETE CASCADE
+    -- RESTRICT: no se puede borrar un producto que tiene movimientos (el historial no se pierde)
+    CONSTRAINT MOVIMIENTO_STOCK_PRODUCTO_fk FOREIGN KEY (producto_id) REFERENCES producto(id_producto) ON DELETE RESTRICT
 );

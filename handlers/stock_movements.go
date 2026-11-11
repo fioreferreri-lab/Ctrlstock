@@ -28,19 +28,14 @@ func (s *Server) MovimientosHandler(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	id, err := strconv.Atoi(path)
-	if err != nil || id <= 0 {
+	if id, err := strconv.Atoi(path); err != nil || id <= 0 {
 		http.Error(w, "ID de movimiento inválido", http.StatusBadRequest)
 		return
 	}
-	id32 := int32(id)
 
-	switch r.Method {
-	case http.MethodDelete:
-		s.deleteMovimiento(w, r, id32)
-	default:
-		http.Error(w, "Método no permitido", http.StatusMethodNotAllowed)
-	}
+	// Los movimientos son el historial de stock: no se modifican ni se borran.
+	// Un error de carga se corrige registrando el movimiento contrario.
+	http.Error(w, "Los movimientos no se pueden eliminar: son el historial de stock. Para corregir un error, registrá el movimiento contrario.", http.StatusMethodNotAllowed)
 }
 
 // listMovimientos muestra la página de movimientos con el formulario vacío (GET /movimiento_stock).
@@ -108,21 +103,11 @@ func (s *Server) createMovimiento(w http.ResponseWriter, r *http.Request) {
 		Motivo:     strings.TrimSpace(r.FormValue("motivo")),
 	}
 
-	if _, err := logic.CrearMovimiento(r.Context(), s.Queries, params); err != nil {
+	if _, err := logic.CrearMovimiento(r.Context(), s.DB, s.Queries, params); err != nil {
 		mostrarError(err)
 		return
 	}
 
 	// Patrón PRG: Redirección limpia tras registrar
-	http.Redirect(w, r, "/movimiento_stock", http.StatusSeeOther)
-}
-
-// deleteMovimiento elimina un registro de movimiento por ID y redirige
-func (s *Server) deleteMovimiento(w http.ResponseWriter, r *http.Request, id int32) {
-	if err := logic.EliminarMovimiento(r.Context(), s.Queries, id); err != nil {
-		http.Error(w, err.Error(), http.StatusInternalServerError)
-		return
-	}
-
 	http.Redirect(w, r, "/movimiento_stock", http.StatusSeeOther)
 }

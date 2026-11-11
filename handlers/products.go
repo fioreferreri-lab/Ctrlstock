@@ -1,6 +1,7 @@
 package handlers
 
 import (
+	"errors"
 	"fmt"
 	"log"
 	"net/http"
@@ -148,23 +149,18 @@ func (s *Server) updateProducto(w http.ResponseWriter, r *http.Request, id int32
 		http.Error(w, err.Error(), http.StatusBadRequest)
 		return
 	}
-	stock, err := leerEntero(r, "stock", "El stock")
-	if err != nil {
-		http.Error(w, err.Error(), http.StatusBadRequest)
-		return
-	}
 	idCategoria, err := leerEnteroOpcional(r, "id_categoria", "La categoría")
 	if err != nil {
 		http.Error(w, err.Error(), http.StatusBadRequest)
 		return
 	}
 
+	// El stock no se edita: solo cambia con movimientos (ingresos y egresos)
 	params := db.UpdateProductoParams{
 		IDProducto:  id,
 		Nombre:      strings.TrimSpace(r.FormValue("nombre")),
 		Descripcion: toNullString(r.FormValue("descripcion")),
 		Precio:      fmt.Sprintf("%.2f", precio),
-		Stock:       stock,
 		IDCategoria: toNullInt32(idCategoria),
 	}
 
@@ -180,6 +176,10 @@ func (s *Server) updateProducto(w http.ResponseWriter, r *http.Request, id int32
 // deleteProducto elimina un producto por su ID y redirige
 func (s *Server) deleteProducto(w http.ResponseWriter, r *http.Request, id int32) {
 	if err := logic.EliminarProducto(r.Context(), s.Queries, id); err != nil {
+		if errors.Is(err, logic.ErrProductoConMovimientos) {
+			http.Error(w, err.Error(), http.StatusConflict)
+			return
+		}
 		http.Error(w, err.Error(), http.StatusInternalServerError)
 		return
 	}

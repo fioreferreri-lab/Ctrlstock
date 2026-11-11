@@ -21,6 +21,17 @@ func esNombreDuplicado(err error) bool {
 	return errors.As(err, &pqErr) && pqErr.Code == "23505"
 }
 
+// estaEnUso detecta si la base rechazó un borrado porque otro registro
+// todavía lo referencia (ON DELETE RESTRICT). 23503 es "violación de clave foránea".
+func estaEnUso(err error) bool {
+	var pqErr *pq.Error
+	return errors.As(err, &pqErr) && pqErr.Code == "23503"
+}
+
+// ErrCategoriaConProductos: no se borra una categoría que tiene productos,
+// para que ningún producto quede sin categoría.
+var ErrCategoriaConProductos = errors.New("no se puede eliminar una categoría que tiene productos; primero asigná esos productos a otra categoría")
+
 // ValidateCategoria recibe el nombre ya limpiado (sin espacios al inicio/fin).
 func ValidateCategoria(nombre string) error {
 	if nombre == "" {
@@ -108,6 +119,9 @@ func ActualizarCategoria(ctx context.Context, queries *db.Queries, params db.Upd
 func EliminarCategoria(ctx context.Context, queries *db.Queries, id int32) error {
 	err := queries.DeleteCategoria(ctx, id)
 	if err != nil {
+		if estaEnUso(err) {
+			return ErrCategoriaConProductos
+		}
 		return fmt.Errorf("error al eliminar la categoría: %w", err)
 	}
 	return nil

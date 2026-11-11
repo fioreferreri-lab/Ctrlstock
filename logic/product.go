@@ -15,6 +15,13 @@ var (
 	ErrCategoriaInexistente = errors.New("la categoría seleccionada no existe")
 )
 
+// ErrProductoConMovimientos: no se borra un producto que tiene historial de movimientos.
+var ErrProductoConMovimientos = errors.New("no se puede eliminar un producto que tiene movimientos registrados")
+
+// ErrProductoDuplicado: un producto se crea una sola vez. Para sumar unidades
+// de un producto que ya existe se registra un ingreso en Movimientos.
+var ErrProductoDuplicado = errors.New("ya existe un producto con ese nombre; para sumar unidades registrá un ingreso en Movimientos")
+
 // ValidateProducto aplica reglas de negocio a un producto.
 func ValidateProducto(nombre string, precio float64, stock int32) error {
 	if strings.TrimSpace(nombre) == "" {
@@ -61,6 +68,9 @@ func CrearProducto(ctx context.Context, queries *db.Queries, params db.CreatePro
 	// 2. Consulta a la base de datos (Persistencia delegada a sqlc)
 	producto, err := queries.CreateProducto(ctx, params)
 	if err != nil {
+		if esNombreDuplicado(err) {
+			return db.Producto{}, ErrProductoDuplicado
+		}
 		return db.Producto{}, fmt.Errorf("error al guardar el producto en la base de datos: %w", err)
 	}
 
@@ -89,12 +99,14 @@ func ListarProductos(ctx context.Context, queries *db.Queries) ([]db.Producto, e
 }
 
 // ActualizarProducto centraliza la validación y la actualización en la base de datos.
+// Edita nombre, descripción, precio y categoría. El stock NO se edita acá:
+// solo cambia con movimientos, para que el historial explique siempre el stock.
 func ActualizarProducto(ctx context.Context, queries *db.Queries, params db.UpdateProductoParams) (db.Producto, error) {
 	var precioFloat float64
 	fmt.Sscanf(params.Precio, "%f", &precioFloat)
 
-	// 1. Validaciones importantes (Regla de negocio)
-	if err := ValidateProducto(params.Nombre, precioFloat, params.Stock); err != nil {
+	// 1. Validaciones importantes (Regla de negocio). El stock no se valida porque no se modifica.
+	if err := ValidateProducto(params.Nombre, precioFloat, 0); err != nil {
 		return db.Producto{}, err
 	}
 	if err := validarCategoriaDeProducto(ctx, queries, params.IDCategoria); err != nil {
@@ -104,6 +116,9 @@ func ActualizarProducto(ctx context.Context, queries *db.Queries, params db.Upda
 	// 2. Actualización en la base de datos
 	producto, err := queries.UpdateProducto(ctx, params)
 	if err != nil {
+		if esNombreDuplicado(err) {
+			return db.Producto{}, ErrProductoDuplicado
+		}
 		return db.Producto{}, fmt.Errorf("error al actualizar el producto: %w", err)
 	}
 
@@ -114,6 +129,9 @@ func ActualizarProducto(ctx context.Context, queries *db.Queries, params db.Upda
 func EliminarProducto(ctx context.Context, queries *db.Queries, id int32) error {
 	err := queries.DeleteProducto(ctx, id)
 	if err != nil {
+		if estaEnUso(err) {
+			return ErrProductoConMovimientos
+		}
 		return fmt.Errorf("error al eliminar el producto: %w", err)
 	}
 	return nil

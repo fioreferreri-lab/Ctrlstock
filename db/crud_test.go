@@ -106,7 +106,6 @@ func TestUpdateProducto(t *testing.T) {
 		Nombre:      "Scrunchie Premium",
 		Descripcion: sql.NullString{String: "Edición limitada", Valid: true},
 		Precio:      "1800.00",
-		Stock:       30,
 		IDCategoria: sql.NullInt32{Int32: cat.IDCategoria, Valid: true},
 		IDProducto:  prod.IDProducto,
 	})

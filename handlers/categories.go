@@ -143,6 +143,10 @@ func (s *Server) updateCategoria(w http.ResponseWriter, r *http.Request, id int3
 // deleteCategoria elimina una categoría por ID y redirige
 func (s *Server) deleteCategoria(w http.ResponseWriter, r *http.Request, id int32) {
 	if err := logic.EliminarCategoria(r.Context(), s.Queries, id); err != nil {
+		if errors.Is(err, logic.ErrCategoriaConProductos) {
+			http.Error(w, err.Error(), http.StatusConflict)
+			return
+		}
 		http.Error(w, err.Error(), http.StatusInternalServerError)
 		return
 	}
