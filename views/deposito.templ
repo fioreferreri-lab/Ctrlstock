@@ -1,0 +1,137 @@
+package views
+
+import (
+	"ctrlstock/logic"
+	"fmt"
+	"strconv"
+	"strings"
+)
+
+// DepositoPage muestra todo el stock como un árbol: categorías, subcategorías
+// y productos, con las unidades y la inversión de cada rama.
+templ DepositoPage(titulo string, deposito logic.Deposito) {
+	@Layout(titulo, depositoContenido(deposito))
+}
+
+templ depositoContenido(deposito logic.Deposito) {
+	@estilosDeposito()
+	<section>
+		<h2>Depósito</h2>
+		<p>Todo lo que hay en stock, organizado por categoría. Tocá una categoría para abrirla o cerrarla.</p>
+		<div class="grid">
+			<article class="dep-dato">
+				<small>Unidades en stock</small>
+				<strong>{ fmt.Sprint(deposito.Unidades) }</strong>
+			</article>
+			<article class="dep-dato">
+				<small>Inversión total</small>
+				<strong>{ formatearMoneda(deposito.Inversion) }</strong>
+			</article>
+			<article class="dep-dato">
+				<small>Categorías principales</small>
+				<strong>{ fmt.Sprint(len(deposito.Raices)) }</strong>
+			</article>
+		</div>
+		if len(deposito.Raices) == 0 {
+			<p><em>Todavía no hay categorías ni productos cargados.</em></p>
+		} else {
+			<div class="dep-arbol">
+				for _, nodo := range deposito.Raices {
+					@nodoCategoria(nodo)
+				}
+			</div>
+		}
+	</section>
+}
+
+// nodoCategoria dibuja una categoría y, adentro, sus subcategorías y productos.
+// Se llama a sí mismo para cada subcategoría (componente recursivo).
+templ nodoCategoria(nodo *logic.NodoCategoria) {
+	<details class="dep-nodo" open>
+		<summary>
+			<span class="dep-nombre">{ nodo.Nombre }</span>
+			<span class="dep-totales">
+				<small>{ unidadesTexto(nodo.Unidades) }</small>
+				<strong>{ formatearMoneda(nodo.Inversion) }</strong>
+			</span>
+		</summary>
+		<div class="dep-contenido">
+			for _, hija := range nodo.Hijas {
+				@nodoCategoria(hija)
+			}
+			for _, p := range nodo.Productos {
+				<div class="dep-producto">
+					<span>{ p.Nombre }</span>
+					<small class={ "dep-stock", templ.KV("dep-agotado", p.Stock == 0) }>
+						{ unidadesTexto(int64(p.Stock)) } × { formatearMoneda(logic.PrecioDe(p)) }
+					</small>
+					<strong>{ formatearMoneda(logic.InversionDe(p)) }</strong>
+				</div>
+			}
+			if len(nodo.Hijas) == 0 && len(nodo.Productos) == 0 {
+				<small class="dep-vacio">Sin productos todavía.</small>
+			}
+		</div>
+	</details>
+}
+
+// estilosDeposito: estilos propios de esta página (el resto lo da Pico).
+templ estilosDeposito() {
+	<style>
+		.dep-dato { margin-bottom: 0; display: flex; flex-direction: column; gap: .25rem; }
+		.dep-dato strong { font-size: 1.5rem; }
+		.dep-arbol { margin-top: 1.5rem; }
+		.dep-nodo { border: 1px solid var(--pico-muted-border-color); border-radius: var(--pico-border-radius); padding: .5rem 1rem; margin-bottom: .75rem; }
+		.dep-nodo > summary { display: flex; align-items: center; gap: 1rem; }
+		.dep-nodo > summary::after { margin-left: 0; }
+		.dep-nombre { flex: 1; font-weight: 600; }
+		.dep-totales { display: flex; align-items: baseline; gap: 1rem; white-space: nowrap; }
+		.dep-totales strong { color: var(--pico-primary); min-width: 9rem; text-align: right; }
+		.dep-contenido { border-left: 2px solid var(--pico-muted-border-color); margin: .5rem 0 .25rem .5rem; padding-left: 1rem; }
+		.dep-nodo .dep-nodo { background: var(--pico-card-background-color); }
+		.dep-producto { display: grid; grid-template-columns: 1fr auto 9rem; gap: 1rem; align-items: baseline; padding: .4rem 0; border-bottom: 1px dashed var(--pico-muted-border-color); }
+		.dep-producto:last-child { border-bottom: none; }
+		.dep-producto strong { text-align: right; }
+		.dep-stock { color: var(--pico-muted-color); white-space: nowrap; }
+		.dep-agotado { color: var(--pico-del-color); }
+		.dep-vacio { color: var(--pico-muted-color); }
+		@media (max-width: 640px) {
+			.dep-totales small { display: none; }
+			.dep-producto { grid-template-columns: 1fr auto; }
+			.dep-producto .dep-stock { grid-column: 1 / -1; grid-row: 2; }
+		}
+	</style>
+}
+
+// unidadesTexto arma "1 unidad" o "250 unidades".
+func unidadesTexto(n int64) string {
+	if n == 1 {
+		return "1 unidad"
+	}
+	return fmt.Sprintf("%d unidades", n)
+}
+
+// formatearMoneda muestra un número como precio argentino: 4500.5 -> "$ 4.500,50".
+func formatearMoneda(v float64) string {
+	texto := strconv.FormatFloat(v, 'f', 2, 64) // "4500.50"
+	partes := strings.Split(texto, ".")
+	entero, decimales := partes[0], partes[1]
+
+	negativo := strings.HasPrefix(entero, "-")
+	entero = strings.TrimPrefix(entero, "-")
+
+	// Separador de miles con punto, de derecha a izquierda
+	var conPuntos strings.Builder
+	for i, digito := range entero {
+		if i > 0 && (len(entero)-i)%3 == 0 {
+			conPuntos.WriteByte('.')
+		}
+		conPuntos.WriteRune(digito)
+	}
+
+	signo := ""
+	if negativo {
+		signo = "-"
+	}
+	return "$ " + signo + conPuntos.String() + "," + decimales
+}

@@ -2,6 +2,7 @@ package views
 
 import (
 	"ctrlstock/db"
+	"ctrlstock/logic"
 	"fmt"
 )
 
@@ -38,7 +39,20 @@ templ MovimientoForm(productos []db.Producto, datos DatosMovimientoForm) {
 				</label>
 				<label>
 					Motivo
-					<input type="text" name="motivo" maxlength="100" value={ datos.Motivo } required/>
+					<select name="motivo" required>
+						<option value="" disabled selected?={ datos.Motivo == "" }>Elegí un motivo</option>
+						<optgroup label="Para ingresos">
+							for _, m := range logic.MotivosIngreso {
+								<option value={ m } selected?={ datos.Motivo == m && datos.Tipo != "EGRESO" }>{ m }</option>
+							}
+						</optgroup>
+						<optgroup label="Para egresos">
+							for _, m := range logic.MotivosEgreso {
+								<option value={ m } selected?={ datos.Motivo == m && datos.Tipo == "EGRESO" }>{ m }</option>
+							}
+						</optgroup>
+					</select>
+					<small>"Venta" es el motivo que cuenta para el ranking de Más vendidos.</small>
 				</label>
 				<button type="submit">Registrar movimiento</button>
 			</form>

@@ -8,3 +8,4 @@ db/*.sql.go
 /ctrlstock
 tmp/
 Ctrlstock/
+ctrlstock

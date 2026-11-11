@@ -19,3 +19,17 @@ RETURNING *;
 -- name: DeleteMovimiento :exec
 DELETE FROM movimiento_stock
 WHERE id_movimiento = $1;
+
+-- name: RankingVentas :many
+-- Productos ordenados por unidades vendidas desde una fecha.
+-- Solo cuenta egresos con motivo "Venta" (no roturas ni ajustes).
+SELECT p.id_producto, p.nombre, p.stock, c.nombre AS categoria,
+       SUM(m.cantidad)::bigint AS vendidas
+FROM movimiento_stock m
+JOIN producto p ON p.id_producto = m.producto_id
+JOIN categoria c ON c.id_categoria = p.id_categoria
+WHERE m.tipo = 'EGRESO'
+  AND m.motivo = 'Venta'
+  AND m.fecha >= sqlc.arg(desde)::timestamp
+GROUP BY p.id_producto, p.nombre, p.stock, c.nombre
+ORDER BY vendidas DESC, p.nombre;

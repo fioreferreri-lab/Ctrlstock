@@ -58,6 +58,12 @@ func main() {
 	mux.HandleFunc("/movimiento_stock", app.MovimientosHandler)
 	mux.HandleFunc("/movimiento_stock/", app.MovimientosHandler)
 
+	// Árbol del depósito: categorías, productos e inversión
+	mux.HandleFunc("/deposito", app.DepositoHandler)
+
+	// Ranking de productos más vendidos
+	mux.HandleFunc("/ventas", app.VentasHandler)
+
 	// Redirección de la raíz al inventario de productos (Opcional, pero útil)
 	mux.HandleFunc("GET /{$}", func(w http.ResponseWriter, r *http.Request) {
 		http.Redirect(w, r, "/producto", http.StatusSeeOther)

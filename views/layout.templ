@@ -4,33 +4,206 @@ package views
 // Recibe el título de la pestaña y el contenido que va en el medio.
 templ Layout(title string, content templ.Component) {
 	<!DOCTYPE html>
-	<html lang="es">
+	<html lang="es" data-theme="light">
 		<head>
 			<meta charset="UTF-8"/>
 			<meta name="viewport" content="width=device-width, initial-scale=1.0"/>
-			<title>{ title }</title>
+			<title>{ title } · CtrlStock</title>
 			<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@picocss/pico@2/css/pico.min.css"/>
+			@estilosMarca()
 		</head>
-		<body>
-			<header class="container">
-				<h1>CtrlStock</h1>
-				<p>Gestión de inventario de productos</p>
-				<nav>
+		<body class="app">
+			<aside class="lateral">
+				<a href="/" class="marca" aria-label="CtrlStock, inicio">
+					@logoCaja()
+					<span class="marca-texto">ctrl<b>Stock</b></span>
+				</a>
+				<p class="lateral-titulo">Menú</p>
+				<nav aria-label="Secciones">
 					<ul>
-						<li><a href="/producto">Productos</a></li>
-						<li><a href="/categoria">Categorías</a></li>
-						<li><a href="/movimiento_stock">Movimientos</a></li>
+						for _, s := range secciones {
+							<li>
+								if s.Titulo == title {
+									<a href={ templ.SafeURL(s.Ruta) } aria-current="page">
+										@icono(s.Ruta)
+										<span>{ s.Texto }</span>
+									</a>
+								} else {
+									<a href={ templ.SafeURL(s.Ruta) }>
+										@icono(s.Ruta)
+										<span>{ s.Texto }</span>
+									</a>
+								}
+							</li>
+						}
 					</ul>
-			</nav>
-				<hr/>
-			</header>
-			<main class="container">
-				@content
-			</main>
-			<footer class="container">
-				<hr/>
-				<small>CtrlStock · Programación Web</small>
-			</footer>
+				</nav>
+				<p class="lateral-pie">Programación Web · 2026</p>
+			</aside>
+			<div class="principal">
+				<header class="encabezado">
+					<small class="encabezado-ruta">CtrlStock · Gestión de inventario</small>
+					<h1>{ title }</h1>
+				</header>
+				<main>
+					@content
+				</main>
+			</div>
 		</body>
 	</html>
+}
+
+// seccion es un link del menú. Titulo es el mismo título que
+// el handler le pasa a la página: así sabemos cuál marcar como actual.
+type seccion struct {
+	Ruta   string
+	Texto  string
+	Titulo string
+}
+
+var secciones = []seccion{
+	{"/deposito", "Depósito", "Depósito"},
+	{"/producto", "Productos", "Inventario de Productos"},
+	{"/categoria", "Categorías", "Categorías"},
+	{"/movimiento_stock", "Movimientos", "Movimientos de stock"},
+	{"/ventas", "Más vendidos", "Más vendidos"},
+}
+
+// icono dibuja un ícono de línea simple para cada sección del menú.
+templ icono(ruta string) {
+	<svg class="icono" viewBox="0 0 24 24" aria-hidden="true">
+		switch ruta {
+			case "/deposito":
+				<path d="M3 21V9l9-6 9 6v12"></path>
+				<path d="M7 21v-8h10v8M7 17h10"></path>
+			case "/producto":
+				<path d="M21 8l-9-5-9 5 9 5 9-5z"></path>
+				<path d="M3 8v8l9 5 9-5V8M12 13v8"></path>
+			case "/categoria":
+				<path d="M3 7a2 2 0 0 1 2-2h4l2 2h8a2 2 0 0 1 2 2v8a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"></path>
+			case "/movimiento_stock":
+				<path d="M4 8h15l-4-4M20 16H5l4 4"></path>
+			default:
+				<path d="M4 20V11M10 20V5M16 20v-6M2 20h20"></path>
+		}
+	</svg>
+}
+
+// logoCaja dibuja la caja del logo en tonos marinos.
+templ logoCaja() {
+	<svg class="marca-logo" viewBox="0 0 64 64" aria-hidden="true">
+		<polygon points="32,4 60,18 32,32 4,18" fill="#A5F3FC"></polygon>
+		<polygon points="4,18 32,32 32,60 4,46" fill="#22D3EE"></polygon>
+		<polygon points="32,32 60,18 60,46 32,60" fill="#0891B2"></polygon>
+	</svg>
+}
+
+// estilosMarca no reemplaza a Pico: le cambia los colores a través
+// de las variables que Pico ya trae (--pico-...) y acomoda el menú al costado.
+templ estilosMarca() {
+	<style>
+		:root[data-theme=light] {
+			/* ===== PALETA ===== */
+			--c-navy: #0B1F3A;
+			--c-navy-2: #12365C;
+			--c-cyan: #22D3EE;
+			--c-cyan-oscuro: #0E7490;
+			--c-crema: #F7F4EE;
+			--c-crema-2: #FBFAF6;
+			--c-blanco: #FFFFFF;
+			--c-gris: #64748B;
+			--c-gris-claro: #E6E1D8;
+			--c-texto: #1E293B;
+		}
+		:root[data-theme=light] {
+			--pico-font-size: 100%;
+			--pico-background-color: var(--c-crema);
+			--pico-color: var(--c-texto);
+			--pico-h1-color: var(--c-navy);
+			--pico-h2-color: var(--c-navy);
+			--pico-h3-color: var(--c-navy);
+			--pico-muted-color: var(--c-gris);
+			--pico-muted-border-color: var(--c-gris-claro);
+			--pico-card-background-color: var(--c-blanco);
+			--pico-card-sectioning-background-color: var(--c-crema-2);
+			--pico-border-radius: .6rem;
+
+			--pico-primary: var(--c-cyan-oscuro);
+			--pico-primary-background: var(--c-navy);
+			--pico-primary-border: var(--c-navy);
+			--pico-primary-underline: var(--c-cyan-oscuro);
+			--pico-primary-hover: var(--c-navy);
+			--pico-primary-hover-background: var(--c-cyan-oscuro);
+			--pico-primary-hover-border: var(--c-cyan-oscuro);
+			--pico-primary-hover-underline: var(--c-navy);
+			--pico-primary-focus: rgba(34, 211, 238, .3);
+			--pico-primary-inverse: #FFFFFF;
+
+			--pico-form-element-background-color: var(--c-crema-2);
+			--pico-form-element-border-color: var(--c-gris-claro);
+			--pico-form-element-focus-color: var(--c-cyan);
+			--pico-table-border-color: #EFEBE4;
+			--pico-progress-color: var(--c-cyan);
+			--pico-progress-background-color: #E7F2F5;
+		}
+
+		/* Estructura: menú al costado y contenido a la derecha */
+		body.app { display: grid; grid-template-columns: 250px 1fr; min-height: 100vh; }
+
+		.lateral { position: sticky; top: 0; height: 100vh; display: flex; flex-direction: column; padding: 1.5rem 1rem;
+			background: linear-gradient(180deg, var(--c-navy) 0%, var(--c-navy-2) 100%); color: #CBD5E1; }
+		.marca { display: flex; align-items: center; gap: .65rem; padding: 0 .6rem; margin-bottom: 2rem; text-decoration: none; }
+		.marca-logo { width: 2.1rem; height: 2.1rem; }
+		.marca-texto { color: #FFFFFF; font-size: 1.35rem; font-weight: 700; letter-spacing: -.02em; }
+		.marca-texto b { color: var(--c-cyan); font-weight: 800; }
+		.lateral-titulo { font-size: .7rem; letter-spacing: .14em; text-transform: uppercase; color: #7C93B2; margin: 0 .8rem .5rem; }
+
+		.lateral nav, .lateral nav ul { display: block; margin: 0; padding: 0; }
+		.lateral nav li { display: block; padding: 0; margin-bottom: .2rem; }
+		.lateral nav a { display: flex; align-items: center; gap: .75rem; margin: 0; padding: .6rem .8rem; border-radius: .6rem;
+			color: #CBD5E1; font-size: .95rem; text-decoration: none; }
+		.lateral nav a:hover { background: rgba(255, 255, 255, .06); color: #FFFFFF; }
+		.lateral nav a[aria-current] { background: rgba(34, 211, 238, .14); color: #FFFFFF; font-weight: 600; box-shadow: inset 3px 0 0 var(--c-cyan); }
+		.lateral nav a[aria-current] .icono { stroke: var(--c-cyan); }
+		.icono { width: 1.15rem; height: 1.15rem; flex: none; fill: none; stroke: currentColor; stroke-width: 1.8; stroke-linecap: round; stroke-linejoin: round; }
+		.lateral-pie { margin: auto .8rem 0; font-size: .75rem; color: #7C93B2; }
+
+		/* Encabezado de la página con un brillo cyan suave en la esquina */
+		.principal { min-width: 0; background: radial-gradient(800px 320px at 100% 0%, rgba(34, 211, 238, .16), transparent 70%) no-repeat; }
+		.encabezado { padding: 2.25rem 2.5rem 1.25rem; }
+		.encabezado-ruta { display: block; color: var(--c-cyan-oscuro); font-size: .75rem; font-weight: 600; letter-spacing: .12em; text-transform: uppercase; margin-bottom: .35rem; }
+		.encabezado h1 { margin: 0; font-size: 2rem; font-weight: 800; letter-spacing: -.025em; }
+		.principal main { padding: 0 2.5rem 3rem; max-width: 1150px; }
+
+		/* Cada sección de la página va en una tarjeta blanca */
+		main > section { --pico-background-color: var(--c-blanco); background: var(--c-blanco); border: 1px solid var(--c-gris-claro);
+			border-radius: 1rem; padding: 1.75rem; margin-bottom: 1.5rem; box-shadow: 0 1px 2px rgba(11, 31, 58, .04), 0 10px 30px rgba(11, 31, 58, .05); }
+		main > section > h2 { display: flex; align-items: center; gap: .6rem; font-size: 1.2rem; font-weight: 700; margin-bottom: 1.25rem; }
+		main > section > h2::before { content: ""; width: .55rem; height: .55rem; border-radius: 50%; background: var(--c-cyan); box-shadow: 0 0 0 4px rgba(34, 211, 238, .18); }
+		/* Tarjetas dentro de tarjetas: planas, con un borde cyan arriba */
+		main section article { box-shadow: none; background: var(--c-crema-2); border: 1px solid var(--c-gris-claro); border-top: 3px solid var(--c-cyan); }
+
+		/* Tablas */
+		main table { margin-bottom: 0; }
+		main th { font-size: .74rem; font-weight: 600; text-transform: uppercase; letter-spacing: .07em; color: var(--c-gris); background: var(--c-crema-2); }
+		main tbody tr:hover td { background: #F1FAFC; }
+
+		button, [type=submit], [role=button] { font-weight: 600; }
+
+		/* En pantallas chicas el menú pasa arriba, en una fila */
+		@media (max-width: 900px) {
+			body.app { grid-template-columns: minmax(0, 1fr); }
+			.lateral { position: static; height: auto; padding: 1rem; min-width: 0; }
+			.marca { margin-bottom: .75rem; }
+			.lateral-titulo, .lateral-pie { display: none; }
+			.lateral nav ul { display: flex; gap: .25rem; overflow-x: auto; }
+			.lateral nav li { flex: none; margin: 0; }
+			.lateral nav a { padding: .45rem .75rem; white-space: nowrap; }
+			.lateral nav a[aria-current] { box-shadow: inset 0 -2px 0 var(--c-cyan); }
+			.encabezado { padding: 1.5rem 1rem 1rem; }
+			.encabezado h1 { font-size: 1.6rem; }
+			.principal main { padding: 0 1rem 2rem; }
+			main > section { padding: 1.1rem; }
+		}
+	</style>
 }

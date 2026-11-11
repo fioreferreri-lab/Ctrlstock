@@ -1,0 +1,94 @@
+package views
+
+import (
+	"ctrlstock/logic"
+	"fmt"
+)
+
+// VentasPage muestra el ranking de productos más vendidos en un período,
+// con una barra proporcional y para cuántos días alcanza el stock de cada uno.
+templ VentasPage(titulo string, ranking logic.RankingVentas) {
+	@Layout(titulo, ventasContenido(ranking))
+}
+
+templ ventasContenido(ranking logic.RankingVentas) {
+	@estilosVentas()
+	<section>
+		<h2>Más vendidos</h2>
+		<p>Productos ordenados por unidades vendidas. Solo cuentan los egresos con motivo "Venta".</p>
+		<div class="ven-periodos" role="group" aria-label="Período">
+			<span>Período:</span>
+			for _, p := range logic.PeriodosVentas {
+				if p == ranking.Dias {
+					<a href={ templ.SafeURL(fmt.Sprintf("/ventas?dias=%d", p)) } role="button" aria-current="page">{ fmt.Sprintf("Últimos %d días", p) }</a>
+				} else {
+					<a href={ templ.SafeURL(fmt.Sprintf("/ventas?dias=%d", p)) } role="button" class="outline">{ fmt.Sprintf("%d días", p) }</a>
+				}
+			}
+		</div>
+		<div class="grid">
+			<article class="ven-dato">
+				<small>Unidades vendidas</small>
+				<strong>{ fmt.Sprint(ranking.TotalVendidas) }</strong>
+			</article>
+			<article class="ven-dato">
+				<small>Producto estrella</small>
+				if ranking.ProductoEstrella != "" {
+					<strong>{ ranking.ProductoEstrella }</strong>
+				} else {
+					<strong>—</strong>
+				}
+			</article>
+			<article class="ven-dato">
+				<small>Por reponer pronto</small>
+				<strong class={ templ.KV("ven-alerta", ranking.ParaReponer > 0) }>{ fmt.Sprint(ranking.ParaReponer) }</strong>
+			</article>
+		</div>
+		if len(ranking.Productos) == 0 {
+			<p><em>No hubo ventas en este período. Las ventas se registran en Movimientos, como egreso con motivo "Venta".</em></p>
+		} else {
+			<ol class="ven-ranking">
+				for _, p := range ranking.Productos {
+					<li>
+						<div class="ven-fila">
+							<div>
+								<strong>{ p.Nombre }</strong>
+								<small class="ven-categoria">{ p.Categoria }</small>
+							</div>
+							<span>{ fmt.Sprintf("%d vendidas", p.Vendidas) }</span>
+						</div>
+						<progress value={ fmt.Sprint(p.Vendidas) } max={ fmt.Sprint(ranking.MaxVendidas) }></progress>
+						<small class={ "ven-stock", templ.KV("ven-alerta", p.Alerta) }>
+							if p.Stock == 0 {
+								Sin stock: reponer ya
+							} else if p.DiasDeStock == 0 {
+								{ fmt.Sprintf("Quedan %d unidades: se agotan en menos de un día. Conviene reponer.", p.Stock) }
+							} else if p.Alerta {
+								{ fmt.Sprintf("Quedan %d unidades: alcanzan para %d días. Conviene reponer.", p.Stock, p.DiasDeStock) }
+							} else {
+								{ fmt.Sprintf("Quedan %d unidades: alcanzan para %d días.", p.Stock, p.DiasDeStock) }
+							}
+						</small>
+					</li>
+				}
+			</ol>
+		}
+	</section>
+}
+
+// estilosVentas: estilos propios de esta página (el resto lo da Pico).
+templ estilosVentas() {
+	<style>
+		.ven-periodos { display: flex; flex-wrap: wrap; gap: .5rem; align-items: center; margin-bottom: 1.5rem; }
+		.ven-periodos a { padding: .35rem .9rem; font-size: .9rem; }
+		.ven-dato { margin-bottom: 0; display: flex; flex-direction: column; gap: .25rem; }
+		.ven-dato strong { font-size: 1.4rem; }
+		.ven-ranking { margin-top: 1.5rem; padding-left: 1.5rem; }
+		.ven-ranking li { margin-bottom: 1.25rem; }
+		.ven-fila { display: flex; justify-content: space-between; align-items: baseline; gap: 1rem; }
+		.ven-categoria { display: block; color: var(--pico-muted-color); }
+		.ven-ranking progress { margin: .35rem 0 .2rem; }
+		.ven-stock { color: var(--pico-muted-color); }
+		.ven-alerta { color: #b45309; font-weight: 600; }
+	</style>
+}

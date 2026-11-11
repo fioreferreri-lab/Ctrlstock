@@ -12,6 +12,31 @@ import (
 // ErrProductoInexistente se devuelve cuando el movimiento apunta a un producto que no existe.
 var ErrProductoInexistente = errors.New("el producto seleccionado no existe")
 
+// MotivoVenta es el motivo que cuenta como venta en el ranking de más vendidos.
+const MotivoVenta = "Venta"
+
+// Motivos permitidos para cada tipo de movimiento. Son una lista fija (no texto
+// libre) para que el historial sea consultable: por ejemplo, separar las ventas
+// de las roturas al armar el ranking de más vendidos.
+var (
+	MotivosIngreso = []string{"Compra a proveedor", "Devolución de cliente", "Ajuste de inventario"}
+	MotivosEgreso  = []string{MotivoVenta, "Rotura o pérdida", "Ajuste de inventario"}
+)
+
+// motivoValido indica si el motivo está permitido para ese tipo de movimiento.
+func motivoValido(tipo string, motivo string) bool {
+	permitidos := MotivosIngreso
+	if tipo == "EGRESO" {
+		permitidos = MotivosEgreso
+	}
+	for _, m := range permitidos {
+		if m == motivo {
+			return true
+		}
+	}
+	return false
+}
+
 // ValidateMovimiento recibe tipo (en mayúsculas) y motivo ya limpiados.
 func ValidateMovimiento(productoID int32, tipo string, cantidad int32, motivo string) error {
 	if productoID <= 0 {
@@ -25,6 +50,13 @@ func ValidateMovimiento(productoID int32, tipo string, cantidad int32, motivo st
 	}
 	if motivo == "" {
 		return errors.New("el motivo no puede estar vacío")
+	}
+	if !motivoValido(tipo, motivo) {
+		tipoTexto := "un ingreso"
+		if tipo == "EGRESO" {
+			tipoTexto = "un egreso"
+		}
+		return fmt.Errorf("el motivo %q no corresponde a %s", motivo, tipoTexto)
 	}
 	return nil
 }
