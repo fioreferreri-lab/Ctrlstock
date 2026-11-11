@@ -71,17 +71,21 @@ func (s *Server) createProducto(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	precio, _ := strconv.ParseFloat(r.FormValue("precio"), 64)
-	stock, _ := strconv.Atoi(r.FormValue("stock"))
-
-	// Manejo seguro del ID de categoría
-	idCatStr := strings.TrimSpace(r.FormValue("id_categoria"))
-	var idCategoria *int32
-	if idCatStr != "" {
-		if id, err := strconv.Atoi(idCatStr); err == nil {
-			id32 := int32(id)
-			idCategoria = &id32
-		}
+	// Chequeo básico: que los campos numéricos sean números
+	precio, err := leerDecimal(r, "precio", "El precio")
+	if err != nil {
+		http.Error(w, err.Error(), http.StatusBadRequest)
+		return
+	}
+	stock, err := leerEntero(r, "stock", "El stock")
+	if err != nil {
+		http.Error(w, err.Error(), http.StatusBadRequest)
+		return
+	}
+	idCategoria, err := leerEnteroOpcional(r, "id_categoria", "La categoría")
+	if err != nil {
+		http.Error(w, err.Error(), http.StatusBadRequest)
+		return
 	}
 
 	// Mapeo de parámetros para sqlc
@@ -89,12 +93,12 @@ func (s *Server) createProducto(w http.ResponseWriter, r *http.Request) {
 		Nombre:      strings.TrimSpace(r.FormValue("nombre")),
 		Descripcion: toNullString(r.FormValue("descripcion")),
 		Precio:      fmt.Sprintf("%.2f", precio),
-		Stock:       int32(stock),
+		Stock:       stock,
 		IDCategoria: toNullInt32(idCategoria),
 	}
 
 	// 2. Delegamos validación y guardado a la capa lógica
-	_, err := logic.CrearProducto(r.Context(), s.Queries, params)
+	_, err = logic.CrearProducto(r.Context(), s.Queries, params)
 	if err != nil {
 		http.Error(w, err.Error(), http.StatusBadRequest)
 		return
@@ -111,16 +115,21 @@ func (s *Server) updateProducto(w http.ResponseWriter, r *http.Request, id int32
 		return
 	}
 
-	precio, _ := strconv.ParseFloat(r.FormValue("precio"), 64)
-	stock, _ := strconv.Atoi(r.FormValue("stock"))
-
-	idCatStr := strings.TrimSpace(r.FormValue("id_categoria"))
-	var idCategoria *int32
-	if idCatStr != "" {
-		if idVal, err := strconv.Atoi(idCatStr); err == nil {
-			id32 := int32(idVal)
-			idCategoria = &id32
-		}
+	// Chequeo básico: que los campos numéricos sean números
+	precio, err := leerDecimal(r, "precio", "El precio")
+	if err != nil {
+		http.Error(w, err.Error(), http.StatusBadRequest)
+		return
+	}
+	stock, err := leerEntero(r, "stock", "El stock")
+	if err != nil {
+		http.Error(w, err.Error(), http.StatusBadRequest)
+		return
+	}
+	idCategoria, err := leerEnteroOpcional(r, "id_categoria", "La categoría")
+	if err != nil {
+		http.Error(w, err.Error(), http.StatusBadRequest)
+		return
 	}
 
 	params := db.UpdateProductoParams{
@@ -128,7 +137,7 @@ func (s *Server) updateProducto(w http.ResponseWriter, r *http.Request, id int32
 		Nombre:      strings.TrimSpace(r.FormValue("nombre")),
 		Descripcion: toNullString(r.FormValue("descripcion")),
 		Precio:      fmt.Sprintf("%.2f", precio),
-		Stock:       int32(stock),
+		Stock:       stock,
 		IDCategoria: toNullInt32(idCategoria),
 	}
 

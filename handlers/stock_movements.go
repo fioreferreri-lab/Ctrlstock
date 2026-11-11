@@ -69,17 +69,26 @@ func (s *Server) createMovimiento(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	productoID, _ := strconv.Atoi(r.FormValue("producto_id"))
-	cantidad, _ := strconv.Atoi(r.FormValue("cantidad"))
+	// Chequeo básico: que los campos numéricos sean números
+	productoID, err := leerEntero(r, "producto_id", "El producto")
+	if err != nil {
+		http.Error(w, err.Error(), http.StatusBadRequest)
+		return
+	}
+	cantidad, err := leerEntero(r, "cantidad", "La cantidad")
+	if err != nil {
+		http.Error(w, err.Error(), http.StatusBadRequest)
+		return
+	}
 
 	params := db.CreateMovimientoParams{
-		ProductoID: int32(productoID),
+		ProductoID: productoID,
 		Tipo:       strings.TrimSpace(r.FormValue("tipo")),
-		Cantidad:   int32(cantidad),
+		Cantidad:   cantidad,
 		Motivo:     strings.TrimSpace(r.FormValue("motivo")),
 	}
 
-	_, err := logic.CrearMovimiento(r.Context(), s.Queries, params)
+	_, err = logic.CrearMovimiento(r.Context(), s.Queries, params)
 	if err != nil {
 		http.Error(w, err.Error(), http.StatusBadRequest)
 		return

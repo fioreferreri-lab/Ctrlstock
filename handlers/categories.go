@@ -69,14 +69,11 @@ func (s *Server) createCategoria(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	// Manejo seguro del campo opcional padre_id
-	var padreID *int32
-	padreStr := strings.TrimSpace(r.FormValue("padre_id"))
-	if padreStr != "" {
-		if pID, err := strconv.Atoi(padreStr); err == nil {
-			p32 := int32(pID)
-			padreID = &p32
-		}
+	// Chequeo básico: que la categoría padre, si viene, sea un número
+	padreID, err := leerEnteroOpcional(r, "padre_id", "La categoría padre")
+	if err != nil {
+		http.Error(w, err.Error(), http.StatusBadRequest)
+		return
 	}
 
 	params := db.CreateCategoriaParams{
@@ -84,7 +81,7 @@ func (s *Server) createCategoria(w http.ResponseWriter, r *http.Request) {
 		PadreID: toNullInt32(padreID), // Utiliza el helper centralizado en utils.go
 	}
 
-	_, err := logic.CrearCategoria(r.Context(), s.Queries, params)
+	_, err = logic.CrearCategoria(r.Context(), s.Queries, params)
 	if err != nil {
 		http.Error(w, err.Error(), http.StatusBadRequest)
 		return
@@ -101,13 +98,11 @@ func (s *Server) updateCategoria(w http.ResponseWriter, r *http.Request, id int3
 		return
 	}
 
-	var padreID *int32
-	padreStr := strings.TrimSpace(r.FormValue("padre_id"))
-	if padreStr != "" {
-		if pID, err := strconv.Atoi(padreStr); err == nil {
-			p32 := int32(pID)
-			padreID = &p32
-		}
+	// Chequeo básico: que la categoría padre, si viene, sea un número
+	padreID, err := leerEnteroOpcional(r, "padre_id", "La categoría padre")
+	if err != nil {
+		http.Error(w, err.Error(), http.StatusBadRequest)
+		return
 	}
 
 	params := db.UpdateCategoriaParams{
@@ -116,7 +111,7 @@ func (s *Server) updateCategoria(w http.ResponseWriter, r *http.Request, id int3
 		PadreID:     toNullInt32(padreID),
 	}
 
-	err := logic.ActualizarCategoria(r.Context(), s.Queries, params)
+	err = logic.ActualizarCategoria(r.Context(), s.Queries, params)
 	if err != nil {
 		if errors.Is(err, sql.ErrNoRows) || strings.Contains(err.Error(), "no rows in result set") {
 			http.Error(w, "Categoría no encontrada", http.StatusNotFound)
