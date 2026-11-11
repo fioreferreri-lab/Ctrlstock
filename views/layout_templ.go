@@ -41,7 +41,7 @@ func Layout(title string, content templ.Component) templ.Component {
 		if templ_7745c5c3_Err != nil {
 			return templ_7745c5c3_Err
 		}
-		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 2, "</title><link rel=\"stylesheet\" href=\"https://cdn.jsdelivr.net/npm/@picocss/pico@2/css/pico.min.css\"></head><body><header class=\"container\"><h1>CtrlStock</h1><p>Gestión de inventario de productos</p><hr></header><main class=\"container\">")
+		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 2, "</title><link rel=\"stylesheet\" href=\"https://cdn.jsdelivr.net/npm/@picocss/pico@2/css/pico.min.css\"></head><body><header class=\"container\"><h1>CtrlStock</h1><p>Gestión de inventario de productos</p><nav><ul><li><a href=\"/producto\">Productos</a></li><li><a href=\"/categoria\">Categorías</a></li><li><a href=\"/movimiento_stock\">Movimientos</a></li></ul></nav><hr></header><main class=\"container\">")
 		if templ_7745c5c3_Err != nil {
 			return templ_7745c5c3_Err
 		}

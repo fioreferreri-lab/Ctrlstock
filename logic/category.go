@@ -6,8 +6,20 @@ import (
 	"fmt"
 	"unicode/utf8"
 
+	"github.com/lib/pq"
+
 	"ctrlstock/db"
 )
+
+// ErrCategoriaDuplicada se devuelve cuando ya existe una categoría con ese nombre.
+var ErrCategoriaDuplicada = errors.New("ya existe una categoría con ese nombre")
+
+// esNombreDuplicado detecta si la base rechazó el dato por la restricción UNIQUE.
+// 23505 es el código de Postgres para "valor duplicado".
+func esNombreDuplicado(err error) bool {
+	var pqErr *pq.Error
+	return errors.As(err, &pqErr) && pqErr.Code == "23505"
+}
 
 // ValidateCategoria recibe el nombre ya limpiado (sin espacios al inicio/fin).
 func ValidateCategoria(nombre string) error {
@@ -36,6 +48,9 @@ func CrearCategoria(ctx context.Context, queries *db.Queries, params db.CreateCa
 
 	categoria, err := queries.CreateCategoria(ctx, params)
 	if err != nil {
+		if esNombreDuplicado(err) {
+			return db.Categoria{}, ErrCategoriaDuplicada
+		}
 		return db.Categoria{}, fmt.Errorf("error al guardar la categoría: %w", err)
 	}
 
@@ -80,6 +95,9 @@ func ActualizarCategoria(ctx context.Context, queries *db.Queries, params db.Upd
 
 	_, err := queries.UpdateCategoria(ctx, params)
 	if err != nil {
+		if esNombreDuplicado(err) {
+			return ErrCategoriaDuplicada
+		}
 		return fmt.Errorf("error al actualizar la categoría: %w", err)
 	}
 

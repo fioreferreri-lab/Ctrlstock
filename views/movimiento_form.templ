@@ -13,7 +13,7 @@ templ MovimientoForm(productos []db.Producto) {
 		if len(productos) == 0 {
 			<p><em>Cargá al menos un producto antes de registrar movimientos.</em></p>
 		} else {
-			<form method="post" action="/movimientos">
+			<form method="post" action="/movimiento_stock">
 				<label>
 					Producto
 					<select name="producto_id" required>

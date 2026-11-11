@@ -33,7 +33,7 @@ func CategoriaForm(categorias []db.Categoria) templ.Component {
 		}
 		ctx = templ.InitializeContext(ctx)
 		ctx = templ.ClearChildren(ctx)
-		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 1, "<section id=\"seccion-form-categoria\"><h2>Nueva categoría</h2><form method=\"post\" action=\"/categorias\"><label>Nombre <input type=\"text\" name=\"nombre\" maxlength=\"100\" required></label> <label>Categoría padre (opcional) <select name=\"padre_id\"><option value=\"\">— Ninguna (categoría raíz) —</option> ")
+		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 1, "<section id=\"seccion-form-categoria\"><h2>Nueva categoría</h2><form method=\"post\" action=\"/categoria\"><label>Nombre <input type=\"text\" name=\"nombre\" maxlength=\"100\" required></label> <label>Categoría padre (opcional) <select name=\"padre_id\"><option value=\"\">— Ninguna (categoría raíz) —</option> ")
 		if templ_7745c5c3_Err != nil {
 			return templ_7745c5c3_Err
 		}

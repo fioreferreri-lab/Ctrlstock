@@ -3,13 +3,15 @@ DROP TABLE IF EXISTS movimiento_stock;
 DROP TABLE IF EXISTS producto;
 DROP TABLE IF EXISTS categoria;
 
--- 2. Creación de tablas
 CREATE TABLE categoria (
     id_categoria SERIAL PRIMARY KEY,
     nombre VARCHAR(100) NOT NULL,
     padre_id INT NULL,
     CONSTRAINT CATEGORIA_Padre_fk FOREIGN KEY (padre_id) REFERENCES categoria(id_categoria) ON DELETE SET NULL
 );
+
+-- No puede haber dos categorías con el mismo nombre (sin distinguir mayúsculas)
+CREATE UNIQUE INDEX categoria_nombre_unico ON categoria (LOWER(nombre));
 
 CREATE TABLE producto (
     id_producto SERIAL PRIMARY KEY,

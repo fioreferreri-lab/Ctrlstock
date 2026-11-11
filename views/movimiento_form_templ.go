@@ -43,7 +43,7 @@ func MovimientoForm(productos []db.Producto) templ.Component {
 				return templ_7745c5c3_Err
 			}
 		} else {
-			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 3, "<form method=\"post\" action=\"/movimientos\"><label>Producto <select name=\"producto_id\" required><option value=\"\" disabled selected>Elegí un producto</option> ")
+			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 3, "<form method=\"post\" action=\"/movimiento_stock\"><label>Producto <select name=\"producto_id\" required><option value=\"\" disabled selected>Elegí un producto</option> ")
 			if templ_7745c5c3_Err != nil {
 				return templ_7745c5c3_Err
 			}

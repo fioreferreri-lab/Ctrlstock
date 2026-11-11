@@ -57,7 +57,7 @@ func (s *Server) listCategorias(w http.ResponseWriter, r *http.Request) {
 
 	w.Header().Set("Content-Type", "text/html; charset=utf-8")
 
-	if err := views.CategoriaList(lista).Render(r.Context(), w); err != nil {
+	if err := views.CategoriaIndexPage("Categorías", lista).Render(r.Context(), w); err != nil {
 		http.Error(w, "Error al renderizar la vista", http.StatusInternalServerError)
 	}
 }
