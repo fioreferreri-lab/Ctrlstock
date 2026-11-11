@@ -1,0 +1,12 @@
+package views
+
+import "ctrlstock/db"
+
+templ CategoriaIndexPage(titulo string, categorias []db.Categoria) {
+	@Layout(titulo, categoriaContenido(categorias))
+}
+
+templ categoriaContenido(categorias []db.Categoria) {
+	@CategoriaForm(categorias)
+	@CategoriaList(categorias)
+}

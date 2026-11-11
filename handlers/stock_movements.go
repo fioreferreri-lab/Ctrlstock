@@ -1,24 +1,16 @@
 package handlers
 
 import (
-	"database/sql"
-	"encoding/json"
-	"errors"
 	"net/http"
 	"strconv"
 	"strings"
 
-	db "ctrlstock/db"
+	"ctrlstock/db"
 	"ctrlstock/logic"
+	"ctrlstock/views"
 )
 
-type MovimientoInput struct {
-	ProductoID int32  `json:"producto_id"`
-	Tipo       string `json:"tipo"`
-	Cantidad   int32  `json:"cantidad"`
-	Motivo     string `json:"motivo"`
-}
-
+// MovimientosHandler rige las rutas de /movimiento_stock
 func (s *Server) MovimientosHandler(w http.ResponseWriter, r *http.Request) {
 	path := strings.TrimPrefix(r.URL.Path, "/movimiento_stock")
 	path = strings.Trim(path, "/")
@@ -35,88 +27,74 @@ func (s *Server) MovimientosHandler(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	if strings.Contains(path, "/") {
-		http.Error(w, "Ruta no encontrada", http.StatusNotFound)
-		return
-	}
-
 	id, err := strconv.Atoi(path)
-	if err != nil {
+	if err != nil || id <= 0 {
 		http.Error(w, "ID de movimiento inválido", http.StatusBadRequest)
 		return
 	}
+	id32 := int32(id)
 
 	switch r.Method {
-	case http.MethodGet:
-		s.getMovimiento(w, r, int32(id))
 	case http.MethodDelete:
-		s.deleteMovimiento(w, r, int32(id))
+		s.deleteMovimiento(w, r, id32)
 	default:
 		http.Error(w, "Método no permitido", http.StatusMethodNotAllowed)
 	}
 }
 
+// listMovimientos obtiene el historial y renderiza la vista HTML con Templ
 func (s *Server) listMovimientos(w http.ResponseWriter, r *http.Request) {
-	lista, err := s.Queries.ListMovimientos(r.Context())
+	movimientos, err := logic.ListarMovimientos(r.Context(), s.Queries)
 	if err != nil {
-		http.Error(w, err.Error(), http.StatusInternalServerError)
+		http.Error(w, "Error al listar los movimientos de stock", http.StatusInternalServerError)
 		return
 	}
-	if lista == nil {
-		lista = []db.MovimientoStock{}
+
+	productos, err := logic.ListarProductos(r.Context(), s.Queries)
+	if err != nil {
+		http.Error(w, "Error al listar los productos", http.StatusInternalServerError)
+		return
 	}
-	w.Header().Set("Content-Type", "application/json")
-	json.NewEncoder(w).Encode(lista)
+
+	w.Header().Set("Content-Type", "text/html; charset=utf-8")
+	if err := views.MovimientoList(movimientos, productos).Render(r.Context(), w); err != nil {
+		http.Error(w, "Error al renderizar la vista", http.StatusInternalServerError)
+	}
 }
 
+// createMovimiento procesa el formulario clásico para registrar un movimiento
 func (s *Server) createMovimiento(w http.ResponseWriter, r *http.Request) {
-	var in MovimientoInput
-	if err := json.NewDecoder(r.Body).Decode(&in); err != nil {
-		http.Error(w, "JSON inválido: "+err.Error(), http.StatusBadRequest)
+	if err := r.ParseForm(); err != nil {
+		http.Error(w, "Formulario inválido", http.StatusBadRequest)
 		return
 	}
 
-	tipo := strings.ToUpper(strings.TrimSpace(in.Tipo))
-	motivo := strings.TrimSpace(in.Motivo)
-	if err := logic.ValidateMovimiento(in.ProductoID, tipo, in.Cantidad, motivo); err != nil {
+	productoID, _ := strconv.Atoi(r.FormValue("producto_id"))
+	cantidad, _ := strconv.Atoi(r.FormValue("cantidad"))
+
+	params := db.CreateMovimientoParams{
+		ProductoID: int32(productoID),
+		Tipo:       strings.TrimSpace(r.FormValue("tipo")),
+		Cantidad:   int32(cantidad),
+		Motivo:     strings.TrimSpace(r.FormValue("motivo")),
+	}
+
+	_, err := logic.CrearMovimiento(r.Context(), s.Queries, params)
+	if err != nil {
 		http.Error(w, err.Error(), http.StatusBadRequest)
 		return
 	}
 
-	m, err := s.Queries.CreateMovimiento(r.Context(), db.CreateMovimientoParams{
-		ProductoID: in.ProductoID,
-		Tipo:       tipo,
-		Cantidad:   in.Cantidad,
-		Motivo:     motivo,
-	})
-	if err != nil {
-		http.Error(w, err.Error(), http.StatusInternalServerError)
-		return
-	}
-
-	w.Header().Set("Content-Type", "application/json")
-	w.WriteHeader(http.StatusCreated)
-	json.NewEncoder(w).Encode(m)
+	// Patrón PRG: Redirección limpia tras registrar
+	http.Redirect(w, r, "/movimiento_stock", http.StatusSeeOther)
 }
 
-func (s *Server) getMovimiento(w http.ResponseWriter, r *http.Request, id int32) {
-	m, err := s.Queries.GetMovimientoByID(r.Context(), id)
-	if err != nil {
-		if errors.Is(err, sql.ErrNoRows) {
-			http.Error(w, "Movimiento no encontrado", http.StatusNotFound)
-			return
-		}
-		http.Error(w, err.Error(), http.StatusInternalServerError)
-		return
-	}
-	w.Header().Set("Content-Type", "application/json")
-	json.NewEncoder(w).Encode(m)
-}
-
+// deleteMovimiento elimina un registro de movimiento por ID y redirige
 func (s *Server) deleteMovimiento(w http.ResponseWriter, r *http.Request, id int32) {
-	if err := s.Queries.DeleteMovimiento(r.Context(), id); err != nil {
+	if err := logic.EliminarMovimiento(r.Context(), s.Queries, id); err != nil {
 		http.Error(w, err.Error(), http.StatusInternalServerError)
 		return
 	}
-	w.WriteHeader(http.StatusNoContent)
+
+	http.Redirect(w, r, "/movimiento_stock", http.StatusSeeOther)
 }

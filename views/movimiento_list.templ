@@ -1,0 +1,56 @@
+package views
+
+import (
+	"ctrlstock/db"
+	"fmt"
+)
+
+// MovimientoList recibe los movimientos que devuelve sqlc y los muestra
+// en una tabla. Recibe también los productos para mostrar el nombre en
+// lugar del id. Si no hay movimientos, muestra un mensaje.
+templ MovimientoList(movimientos []db.MovimientoStock, productos []db.Producto) {
+	<section id="seccion-lista-movimientos">
+		<h2>Movimientos de stock</h2>
+		if len(movimientos) == 0 {
+			<p><em>Todavía no hay movimientos registrados.</em></p>
+		} else {
+			<div class="overflow-auto">
+				<table>
+					<thead>
+						<tr>
+							<th>ID</th>
+							<th>Fecha</th>
+							<th>Producto</th>
+							<th>Tipo</th>
+							<th>Cantidad</th>
+							<th>Motivo</th>
+						</tr>
+					</thead>
+					<tbody>
+						for _, m := range movimientos {
+							<tr id={ fmt.Sprintf("movimiento-%d", m.IDMovimiento) }>
+								<td>{ fmt.Sprint(m.IDMovimiento) }</td>
+								<td>{ m.Fecha.Format("02/01/2006 15:04") }</td>
+								<td>{ nombreProductoDe(m, productos) }</td>
+								<td>{ m.Tipo }</td>
+								<td>{ fmt.Sprint(m.Cantidad) }</td>
+								<td>{ m.Motivo }</td>
+							</tr>
+						}
+					</tbody>
+				</table>
+			</div>
+		}
+	</section>
+}
+
+// nombreProductoDe busca en la lista el nombre del producto del movimiento.
+// Si no lo encuentra, devuelve el id como respaldo.
+func nombreProductoDe(m db.MovimientoStock, productos []db.Producto) string {
+	for _, p := range productos {
+		if p.IDProducto == m.ProductoID {
+			return p.Nombre
+		}
+	}
+	return fmt.Sprintf("#%d", m.ProductoID)
+}

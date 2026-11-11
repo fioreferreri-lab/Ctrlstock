@@ -1,0 +1,30 @@
+package views
+
+import (
+	"ctrlstock/db"
+	"fmt"
+)
+
+// CategoriaForm muestra el formulario para crear una categoría.
+// Recibe todas las categorías para poder elegir una como padre (opcional).
+templ CategoriaForm(categorias []db.Categoria) {
+	<section id="seccion-form-categoria">
+		<h2>Nueva categoría</h2>
+		<form method="post" action="/categorias">
+			<label>
+				Nombre
+				<input type="text" name="nombre" maxlength="100" required/>
+			</label>
+			<label>
+				Categoría padre (opcional)
+				<select name="padre_id">
+					<option value="">— Ninguna (categoría raíz) —</option>
+					for _, c := range categorias {
+						<option value={ fmt.Sprint(c.IDCategoria) }>{ c.Nombre }</option>
+					}
+				</select>
+			</label>
+			<button type="submit">Guardar categoría</button>
+		</form>
+	</section>
+}

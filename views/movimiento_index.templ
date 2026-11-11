@@ -1,0 +1,12 @@
+package views
+
+import "ctrlstock/db"
+
+templ MovimientoIndexPage(titulo string, movimientos []db.MovimientoStock, productos []db.Producto) {
+	@Layout(titulo, movimientoContenido(movimientos, productos))
+}
+
+templ movimientoContenido(movimientos []db.MovimientoStock, productos []db.Producto) {
+	@MovimientoForm(productos)
+	@MovimientoList(movimientos, productos)
+}

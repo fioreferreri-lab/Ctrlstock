@@ -1,30 +1,22 @@
 package handlers
 
 import (
-	"database/sql"
-	"encoding/json"
-	"errors"
 	"fmt"
 	"net/http"
 	"strconv"
 	"strings"
 
-	db "ctrlstock/db"
+	"ctrlstock/db"
 	"ctrlstock/logic"
+	"ctrlstock/views" // Importamos plantillas de Templ
 )
 
-type ProductoInput struct {
-	Nombre      string  `json:"nombre"`
-	Descripcion *string `json:"descripcion,omitempty"`
-	Precio      float64 `json:"precio"`
-	Stock       int32   `json:"stock"`
-	IDCategoria *int32  `json:"id_categoria,omitempty"`
-}
-
+// ProductosHandler rige tanto la colección (/producto) como recursos individuales (/producto/{id})
 func (s *Server) ProductosHandler(w http.ResponseWriter, r *http.Request) {
 	path := strings.TrimPrefix(r.URL.Path, "/producto")
 	path = strings.Trim(path, "/")
 
+	// Si la ruta está vacía (/producto), manejamos listar y crear
 	if path == "" {
 		switch r.Method {
 		case http.MethodGet:
@@ -37,124 +29,124 @@ func (s *Server) ProductosHandler(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	if strings.Contains(path, "/") {
-		http.Error(w, "Ruta no encontrada", http.StatusNotFound)
-		return
-	}
-
+	// Si hay un ID en la ruta (/producto/{id}), manejamos acciones específicas por ID
 	id, err := strconv.Atoi(path)
-	if err != nil {
+	if err != nil || id <= 0 {
 		http.Error(w, "ID de producto inválido", http.StatusBadRequest)
 		return
 	}
+	id32 := int32(id)
 
 	switch r.Method {
-	case http.MethodGet:
-		s.getProducto(w, r, int32(id))
-	case http.MethodPut:
-		s.updateProducto(w, r, int32(id))
+	case http.MethodPost, http.MethodPut:
+		s.updateProducto(w, r, id32)
 	case http.MethodDelete:
-		s.deleteProducto(w, r, int32(id))
+		s.deleteProducto(w, r, id32)
 	default:
 		http.Error(w, "Método no permitido", http.StatusMethodNotAllowed)
 	}
 }
 
+// listProductos renderiza la vista HTML principal usando Templ
 func (s *Server) listProductos(w http.ResponseWriter, r *http.Request) {
-	lista, err := s.Queries.ListProductos(r.Context())
+	// 1. Obtenemos datos desde la capa lógica
+	lista, err := logic.ListarProductos(r.Context(), s.Queries)
 	if err != nil {
-		http.Error(w, err.Error(), http.StatusInternalServerError)
+		http.Error(w, "Error al obtener el inventario", http.StatusInternalServerError)
 		return
 	}
-	if lista == nil {
-		lista = []db.Producto{}
+
+	// 2. TP5: Renderizamos el HTML con Templ
+	w.Header().Set("Content-Type", "text/html; charset=utf-8")
+	if err := views.IndexPage("Inventario de Productos", lista).Render(r.Context(), w); err != nil {
+		http.Error(w, "Error al renderizar la vista", http.StatusInternalServerError)
 	}
-	w.Header().Set("Content-Type", "application/json")
-	json.NewEncoder(w).Encode(lista)
 }
 
+// createProducto procesa el formulario HTML clásico para dar de alta un producto
 func (s *Server) createProducto(w http.ResponseWriter, r *http.Request) {
-	var in ProductoInput
-	if err := json.NewDecoder(r.Body).Decode(&in); err != nil {
-		http.Error(w, "JSON inválido: "+err.Error(), http.StatusBadRequest)
+	// 1. Parseamos el formulario clásico enviado por el navegador
+	if err := r.ParseForm(); err != nil {
+		http.Error(w, "Formulario inválido", http.StatusBadRequest)
 		return
 	}
 
-	nombre := strings.TrimSpace(in.Nombre)
-	if err := logic.ValidateProducto(nombre, in.Precio, in.Stock); err != nil {
+	precio, _ := strconv.ParseFloat(r.FormValue("precio"), 64)
+	stock, _ := strconv.Atoi(r.FormValue("stock"))
+
+	// Manejo seguro del ID de categoría
+	idCatStr := strings.TrimSpace(r.FormValue("id_categoria"))
+	var idCategoria *int32
+	if idCatStr != "" {
+		if id, err := strconv.Atoi(idCatStr); err == nil {
+			id32 := int32(id)
+			idCategoria = &id32
+		}
+	}
+
+	// Mapeo de parámetros para sqlc
+	params := db.CreateProductoParams{
+		Nombre:      strings.TrimSpace(r.FormValue("nombre")),
+		Descripcion: toNullString(r.FormValue("descripcion")),
+		Precio:      fmt.Sprintf("%.2f", precio),
+		Stock:       int32(stock),
+		IDCategoria: toNullInt32(idCategoria),
+	}
+
+	// 2. Delegamos validación y guardado a la capa lógica
+	_, err := logic.CrearProducto(r.Context(), s.Queries, params)
+	if err != nil {
 		http.Error(w, err.Error(), http.StatusBadRequest)
 		return
 	}
 
-	p, err := s.Queries.CreateProducto(r.Context(), db.CreateProductoParams{
-		Nombre:      nombre,
-		Descripcion: toNullString(in.Descripcion),
-		Precio:      fmt.Sprintf("%.2f", in.Precio),
-		Stock:       in.Stock,
-		IDCategoria: toNullInt32(in.IDCategoria),
-	})
-	if err != nil {
-		http.Error(w, err.Error(), http.StatusInternalServerError)
-		return
-	}
-
-	w.Header().Set("Content-Type", "application/json")
-	w.WriteHeader(http.StatusCreated)
-	json.NewEncoder(w).Encode(p)
+	// 3. Patrón PRG (Post/Redirect/Get): Redirigimos a la lista para actualizar la vista
+	http.Redirect(w, r, "/producto", http.StatusSeeOther)
 }
 
-func (s *Server) getProducto(w http.ResponseWriter, r *http.Request, id int32) {
-	p, err := s.Queries.GetProductoByID(r.Context(), id)
-	if err != nil {
-		if errors.Is(err, sql.ErrNoRows) {
-			http.Error(w, "Producto no encontrado", http.StatusNotFound)
-			return
-		}
-		http.Error(w, err.Error(), http.StatusInternalServerError)
-		return
-	}
-	w.Header().Set("Content-Type", "application/json")
-	json.NewEncoder(w).Encode(p)
-}
-
+// updateProducto procesa la actualización de un producto existente por ID
 func (s *Server) updateProducto(w http.ResponseWriter, r *http.Request, id int32) {
-	var in ProductoInput
-	if err := json.NewDecoder(r.Body).Decode(&in); err != nil {
-		http.Error(w, "JSON inválido: "+err.Error(), http.StatusBadRequest)
+	if err := r.ParseForm(); err != nil {
+		http.Error(w, "Formulario inválido", http.StatusBadRequest)
 		return
 	}
 
-	nombre := strings.TrimSpace(in.Nombre)
-	if err := logic.ValidateProducto(nombre, in.Precio, in.Stock); err != nil {
+	precio, _ := strconv.ParseFloat(r.FormValue("precio"), 64)
+	stock, _ := strconv.Atoi(r.FormValue("stock"))
+
+	idCatStr := strings.TrimSpace(r.FormValue("id_categoria"))
+	var idCategoria *int32
+	if idCatStr != "" {
+		if idVal, err := strconv.Atoi(idCatStr); err == nil {
+			id32 := int32(idVal)
+			idCategoria = &id32
+		}
+	}
+
+	params := db.UpdateProductoParams{
+		IDProducto:  id,
+		Nombre:      strings.TrimSpace(r.FormValue("nombre")),
+		Descripcion: toNullString(r.FormValue("descripcion")),
+		Precio:      fmt.Sprintf("%.2f", precio),
+		Stock:       int32(stock),
+		IDCategoria: toNullInt32(idCategoria),
+	}
+
+	// Delegamos a la capa lógica
+	if _, err := logic.ActualizarProducto(r.Context(), s.Queries, params); err != nil {
 		http.Error(w, err.Error(), http.StatusBadRequest)
 		return
 	}
 
-	p, err := s.Queries.UpdateProducto(r.Context(), db.UpdateProductoParams{
-		IDProducto:  id,
-		Nombre:      nombre,
-		Descripcion: toNullString(in.Descripcion),
-		Precio:      fmt.Sprintf("%.2f", in.Precio),
-		Stock:       in.Stock,
-		IDCategoria: toNullInt32(in.IDCategoria),
-	})
-	if err != nil {
-		if errors.Is(err, sql.ErrNoRows) {
-			http.Error(w, "Producto no encontrado", http.StatusNotFound)
-			return
-		}
-		http.Error(w, err.Error(), http.StatusInternalServerError)
-		return
-	}
-
-	w.Header().Set("Content-Type", "application/json")
-	json.NewEncoder(w).Encode(p)
+	http.Redirect(w, r, "/producto", http.StatusSeeOther)
 }
 
+// deleteProducto elimina un producto por su ID y redirige
 func (s *Server) deleteProducto(w http.ResponseWriter, r *http.Request, id int32) {
-	if err := s.Queries.DeleteProducto(r.Context(), id); err != nil {
+	if err := logic.EliminarProducto(r.Context(), s.Queries, id); err != nil {
 		http.Error(w, err.Error(), http.StatusInternalServerError)
 		return
 	}
-	w.WriteHeader(http.StatusNoContent)
+
+	http.Redirect(w, r, "/producto", http.StatusSeeOther)
 }

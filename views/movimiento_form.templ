@@ -1,0 +1,46 @@
+package views
+
+import (
+	"ctrlstock/db"
+	"fmt"
+)
+
+// MovimientoForm muestra el formulario para registrar un movimiento de stock.
+// Recibe los productos para poder elegir a cuál se le aplica el movimiento.
+templ MovimientoForm(productos []db.Producto) {
+	<section id="seccion-form-movimiento">
+		<h2>Nuevo movimiento</h2>
+		if len(productos) == 0 {
+			<p><em>Cargá al menos un producto antes de registrar movimientos.</em></p>
+		} else {
+			<form method="post" action="/movimientos">
+				<label>
+					Producto
+					<select name="producto_id" required>
+						<option value="" disabled selected>Elegí un producto</option>
+						for _, p := range productos {
+							<option value={ fmt.Sprint(p.IDProducto) }>{ p.Nombre }</option>
+						}
+					</select>
+				</label>
+				<label>
+					Tipo
+					<select name="tipo" required>
+						<option value="entrada">Entrada</option>
+						<option value="salida">Salida</option>
+						<option value="ajuste">Ajuste</option>
+					</select>
+				</label>
+				<label>
+					Cantidad
+					<input type="number" name="cantidad" min="1" step="1" required/>
+				</label>
+				<label>
+					Motivo
+					<input type="text" name="motivo" maxlength="100" required/>
+				</label>
+				<button type="submit">Registrar movimiento</button>
+			</form>
+		}
+	</section>
+}

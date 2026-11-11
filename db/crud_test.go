@@ -21,7 +21,7 @@ func newTestQueries(t *testing.T) (*Queries, context.Context) {
 }
 
 // crea una categoría de prueba usando la función de sqlc y la borra automáticamente al terminar.
-func createTestCategoria(t *testing.T, q *Queries, ctx context.Context) Categorium {
+func createTestCategoria(t *testing.T, q *Queries, ctx context.Context) Categoria {
 	t.Helper()
 	cat, err := q.CreateCategoria(ctx, CreateCategoriaParams{
 		Nombre:  "Accesorios",

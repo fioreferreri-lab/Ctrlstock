@@ -2,6 +2,7 @@ package handlers
 
 import (
 	"database/sql"
+	"strings"
 
 	db "ctrlstock/db"
 )
@@ -11,11 +12,9 @@ type Server struct {
 	Queries *db.Queries
 }
 
-func toNullString(s *string) sql.NullString {
-	if s == nil {
-		return sql.NullString{Valid: false}
-	}
-	return sql.NullString{String: *s, Valid: true}
+func toNullString(s string) sql.NullString {
+	s = strings.TrimSpace(s)
+	return sql.NullString{String: s, Valid: s != ""}
 }
 
 func toNullInt32(n *int32) sql.NullInt32 {
