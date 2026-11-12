@@ -43,7 +43,7 @@ Es una aplicación **renderizada en el servidor (SSR)**: Go genera el HTML con *
 ```bash
 git clone https://github.com/fioreferreri-lab/Ctrlstock.git
 cd Ctrlstock
-git checkout nuevo
+git checkout tp5
 ```
 
 ### Paso 2: Levantar la aplicación
