@@ -1,204 +1,208 @@
-# CtrlStock: API REST de gestión de stock
+# CtrlStock: gestión de stock con renderizado en el servidor
 
-**CtrlStock** es una API REST para la gestión de stock e inventario. Permite administrar productos, una jerarquía de categorías y el registro histórico de los movimientos de inventario.
+**CtrlStock** es una aplicación web para gestionar el stock de un depósito. Permite administrar productos, organizarlos en categorías (con jerarquía), registrar los movimientos de inventario y ver qué productos se venden más.
 
-La API expone la lógica de negocio a través de endpoints HTTP, conectándola con la capa de datos generada por **sqlc** sobre **PostgreSQL**.
+Es una aplicación **renderizada en el servidor (SSR)**: Go genera el HTML con **templ** y lo envía ya armado al navegador. No hay una API JSON ni JavaScript del lado del cliente. Los formularios se envían con `POST` y el servidor responde con una redirección, siguiendo el patrón **Post/Redirect/Get (PRG)**.
 
 ---
 
 ## 1. Tecnologías utilizadas
 
-*   **Go:** lenguaje principal de la aplicación y del servidor HTTP (`net/http`).
+*   **Go:** lenguaje de la aplicación y del servidor HTTP (`net/http`).
+*   **templ:** genera las vistas HTML como componentes Go, verificados en compilación.
+*   **Pico.css:** hoja de estilos (cargada por CDN), más estilos propios definidos en el layout.
 *   **PostgreSQL:** motor de base de datos relacional.
-*   **Docker y Docker Compose:** levantan PostgreSQL en un contenedor, sin instalaciones locales y de forma reproducible en cualquier entorno.
-*   **sqlc:** genera código Go tipado a partir de las consultas SQL. El código generado no se versiona: se crea automáticamente al ejecutar `make run`, `make build` o `make test`.
+*   **Docker y Docker Compose:** levantan PostgreSQL en un contenedor, sin instalaciones locales.
+*   **sqlc:** genera código Go tipado a partir de las consultas SQL. Ese código no se versiona: se crea al ejecutar `make run`.
 *   **lib/pq:** driver de PostgreSQL para Go.
-*   **GNU Make:** automatiza la generación de código, la base de datos, la ejecución y las pruebas.
-*   **curl:** usado por `requests.bash` para probar cada endpoint.
+*   **GNU Make:** automatiza la generación de código, la base de datos y la ejecución.
 
 ---
 
 ## 2. Requisitos
 
-1.  **Go** `>= 1.22.2`
+1.  **Go** `>= 1.22.2` (las rutas usan patrones con método, como `GET /{$}`)
 2.  **Docker** y **Docker Compose**
 3.  **Make**
-4.  **sqlc** (debe estar en el `PATH`; por ejemplo, si se instaló con `go install`, agregar `$HOME/go/bin` al `PATH`)
-5.  **curl**
+4.  **sqlc** y **templ**, instalados con `go install` y disponibles en el `PATH`:
+
+    ```bash
+    go install github.com/sqlc-dev/sqlc/cmd/sqlc@latest
+    go install github.com/a-h/templ/cmd/templ@latest
+    export PATH="$PATH:$HOME/go/bin"   # si todavía no está en el PATH
+    ```
+5.  **curl** (solo si se quiere correr `make test`)
+6.  Conexión a internet (para descargar Pico.css y las dependencias de Go).
 
 ---
 
-## 3. Estructura del proyecto
-
-```text
-Ctrlstock/
-│
-├── main.go                    # Conexión a la base, instancia de sqlc, rutas y servidor HTTP
-│
-├── handlers/                  # Capa HTTP: reciben el pedido, validan y responden JSON
-│   ├── categories.go
-│   ├── products.go
-│   ├── stock_movements.go
-│   └── utils.go
-│
-├── logic/                     # Reglas de negocio (validaciones)
-│   ├── category.go
-│   ├── product.go
-│   └── stock_movement.go
-│
-├── db/                        # Capa de datos
-│   ├── scheme/schema.sql      # Definición de las tablas
-│   ├── queries/               # Consultas SQL usadas por sqlc (un archivo por tabla)
-│   │   ├── categoria.sql
-│   │   ├── producto.sql
-│   │   └── movimiento_stock.sql
-│   ├── *.go generados         # Código generado por sqlc (no se sube al repo)
-│   └── crud_test.go           # Tests de las consultas contra PostgreSQL
-│
-├── docker-compose.yaml        # Contenedor de PostgreSQL
-├── sqlc.yaml                  # Configuración de sqlc
-├── makefile                   # Automatización de tareas
-└── requests.bash              # Pruebas de todos los endpoints con curl
-```
-
-### Flujo de una petición
-
-```text
-Cliente (curl) → endpoint → handler → reglas de negocio (logic) → queries de sqlc → PostgreSQL
-                                                                                      ↓
-Cliente ← respuesta JSON ← handler ←───────────────────────────────────────────────  datos
-```
-
----
-
-## 4. Modelo de datos
-
-### A. Categoría (`categoria`)
-Organiza los productos en una jerarquía: una categoría puede tener una categoría padre (`padre_id`, opcional).
-
-### B. Producto (`producto`)
-Cada ítem del inventario: nombre, descripción, precio, stock actual y categoría (`id_categoria`).
-
-### C. Movimiento de stock (`movimiento_stock`)
-Registro histórico de cada movimiento de inventario: producto, tipo (`INGRESO` o `EGRESO`), cantidad, motivo y fecha.
-
----
-
-## 5. Cómo ejecutar el proyecto
+## 3. Cómo ejecutar el proyecto
 
 ### Paso 1: Clonar el repositorio
 
 ```bash
 git clone https://github.com/fioreferreri-lab/Ctrlstock.git
 cd Ctrlstock
-git checkout tp3-api-rest
+git checkout nuevo
 ```
 
-### Paso 2: Levantar el servidor
+### Paso 2: Levantar la aplicación
 
 ```bash
 make run
 ```
 
-Este comando:
+Este comando, en orden:
+
 1.  levanta PostgreSQL en Docker y espera a que esté lista,
-2.  crea las tablas a partir de `schema.sql`,
-3.  genera el código con sqlc,
+2.  crea las tablas a partir de `db/schema/schema.sql`,
+3.  genera el código Go: las consultas (**sqlc**) y las vistas (**templ**),
 4.  inicia el servidor.
 
-La API queda disponible en **http://localhost:8080**. Para detenerla: `Ctrl + C`.
+La aplicación queda disponible en **http://localhost:8080**. Para detenerla: `Ctrl + C`.
 
-La aplicación lee la conexión a la base desde la variable de entorno `DATABASE_URL`, que el `makefile` define automáticamente:
+> **Importante:** cada `make run` vuelve a crear las tablas, así que **los datos no se conservan entre ejecuciones**: se arranca siempre con la base vacía.
+
+La conexión a la base se lee de la variable de entorno `DATABASE_URL`, que el `makefile` define automáticamente (debe coincidir con `docker-compose.yaml`):
 
 ```text
 postgres://user:password@localhost:5432/stockapp?sslmode=disable
-```
-
-### Paso 3: Probar la API
-
-Con un solo comando, desde una base limpia:
-
-```bash
-make test
-```
-
-Este comando realiza, en orden:
-
-1.  **Tareas previas:** genera el código con sqlc, compila la aplicación, borra contenedores y volúmenes anteriores, levanta PostgreSQL, espera a que esté lista, crea las tablas y levanta la aplicación.
-2.  **Pruebas:** corre los tests de Go de la capa de datos y luego ejecuta `requests.bash`, que prueba cada endpoint y verifica el código de respuesta.
-3.  **Tareas posteriores:** apaga la aplicación y borra contenedores y volúmenes (aunque alguna prueba falle).
-
-Cada prueba se muestra como `[OK]` o `[FALLA]`, y al final se imprime un resumen:
-
-```text
-Resultado: 28 pasaron, 0 fallaron
-```
-
-También se puede correr `requests.bash` por separado, con el servidor ya levantado (`make run`) y la base recién creada:
-
-```bash
-./requests.bash
 ```
 
 ### Otros comandos del makefile
 
 | Comando | Descripción |
 |---|---|
-| `make run` | Levanta la base y el servidor |
-| `make test` | Ciclo completo de pruebas sobre una base limpia |
+| `make run` | Levanta la base, genera el código y arranca el servidor |
+| `make generate` | Ejecuta `sqlc generate` y `templ generate` |
 | `make build` | Genera el código y compila el binario en `tmp/` |
-| `make generate` | Ejecuta `sqlc generate` |
-| `make db-reset` | Borra contenedores y volúmenes (datos incluidos) |
+| `make test` | Ciclo completo de pruebas sobre una base limpia (ver sección 8) |
+| `make db-reset` | Borra el contenedor y el volumen de la base (datos incluidos) |
 | `make clean` | Borra la base y los archivos compilados |
 
 ---
 
-## 6. Endpoints de la API
+## 4. Páginas de la aplicación
 
-Todas las entidades exponen las mismas operaciones CRUD:
+Todas las páginas comparten el layout con el menú lateral.
 
-| Método | Ruta | Descripción | Respuesta |
-|---|---|---|---|
-| `POST` | `/<entidad>` | Crea un registro a partir de un JSON validado | `201` con el objeto creado · `400` si los datos son inválidos |
-| `GET` | `/<entidad>` | Lista todos los registros | `200` con un array JSON |
-| `GET` | `/<entidad>/{id}` | Obtiene un registro por ID | `200` · `404` si no existe |
-| `PUT` | `/<entidad>/{id}` | Actualiza un registro con datos validados | `200` con el objeto actualizado · `400` · `404` |
-| `DELETE` | `/<entidad>/{id}` | Elimina un registro | `204 No Content` |
+| Ruta | Página | Qué permite hacer |
+|---|---|---|
+| `/` | — | Redirige a `/producto` |
+| `/deposito` | **Depósito** | Ver todo lo que hay en stock organizado por categoría (árbol desplegable), con las unidades en stock, la inversión total y la cantidad de categorías principales |
+| `/producto` | **Productos** | Ver el inventario y cargar un producto nuevo (nombre, descripción, precio, stock inicial y categoría) |
+| `/categoria` | **Categorías** | Ver las categorías y crear una nueva, con una categoría padre opcional |
+| `/movimiento_stock` | **Movimientos** | Ver el historial y registrar un ingreso o un egreso de un producto |
+| `/ventas?dias=7\|30\|90` | **Más vendidos** | Ranking de productos por unidades vendidas en los últimos 7, 30 (por defecto) o 90 días |
 
-Entidades: `categoria`, `producto` y `movimiento_stock`.
+Las rutas `/producto/{id}` y `/categoria/{id}` permiten editar (`POST`/`PUT`) y eliminar (`DELETE`) un registro.
 
-### Categoría
+Cuando un formulario tiene un error de validación, la página se vuelve a mostrar con el mensaje y con los datos que el usuario ya había escrito (respuesta `400`). Cuando todo sale bien, el servidor responde con una redirección `303` y el navegador pide la página de nuevo con la lista actualizada.
 
-```bash
-curl -X POST http://localhost:8080/categoria \
-  -H "Content-Type: application/json" \
-  -d '{"nombre": "Teclados", "padre_id": 1}'
+### Flujo de una petición
+
+```text
+Navegador → ruta → handler → reglas de negocio (logic) → consultas sqlc → PostgreSQL
+                      │
+                      └→ componente templ (views) → HTML completo → Navegador
 ```
 
-Validaciones: el nombre no puede estar vacío y una categoría no puede ser su propia categoría padre.
+---
 
-### Producto
+## 5. Reglas de negocio
 
-```bash
-curl -X POST http://localhost:8080/producto \
-  -H "Content-Type: application/json" \
-  -d '{"nombre": "Teclado", "descripcion": "Mecánico", "precio": 45000, "stock": 10, "id_categoria": 2}'
+Las validan los archivos de `logic/`, no las vistas, para que valgan sin importar desde dónde llegue el pedido.
+
+**Productos**
+*   Todo producto debe tener una **categoría obligatoria** y existente: no hay productos sin categoría.
+*   **No puede haber nombres repetidos.** Para sumar unidades de un producto que ya existe se registra un ingreso en Movimientos.
+*   El nombre no puede estar vacío, el precio debe ser mayor a cero y el stock no puede ser negativo.
+*   No se puede eliminar un producto que tiene movimientos registrados.
+
+**Categorías**
+*   El nombre es obligatorio, de hasta 100 caracteres, y **no puede repetirse**.
+*   Una categoría no puede ser su propia categoría padre.
+*   No se puede eliminar una categoría que tiene productos.
+
+**Stock y movimientos**
+*   El stock se define una sola vez, al crear el producto (stock inicial). **Después solo cambia con movimientos:** un ingreso suma unidades y un egreso las resta. El stock no se edita desde el formulario de producto.
+*   Un egreso no puede dejar el stock en negativo (`stock insuficiente`).
+*   Registrar un movimiento y actualizar el stock ocurre en **una sola transacción**: se guardan las dos cosas o ninguna.
+*   **Los movimientos no se modifican ni se eliminan:** son el historial de stock. Un error de carga se corrige registrando el movimiento contrario. Los pedidos para borrar un movimiento responden `405`.
+*   El motivo se elige de una lista fija, según el tipo:
+    *   **Ingreso:** Compra a proveedor, Devolución de cliente, Ajuste de inventario.
+    *   **Egreso:** Venta, Rotura o pérdida, Ajuste de inventario.
+
+**Más vendidos**
+*   Solo cuentan los egresos con motivo **Venta**. Las roturas y los ajustes no suman al ranking.
+
+---
+
+## 6. Estructura del proyecto
+
+```text
+Ctrlstock/
+│
+├── main.go                    # Conexión a la base, rutas y servidor HTTP
+│
+├── handlers/                  # Capa HTTP: leen el formulario, llaman a logic y renderizan
+│   ├── products.go
+│   ├── categories.go
+│   ├── stock_movements.go
+│   ├── deposito.go
+│   ├── ventas.go
+│   └── utils.go               # Lectura y chequeo básico de los campos del formulario
+│
+├── logic/                     # Reglas de negocio (validaciones, transacción de movimientos, ranking)
+│   ├── product.go
+│   ├── category.go
+│   └── stock_movement.go
+│
+├── views/                     # Componentes templ (*.templ) y el código Go que generan (*_templ.go)
+│   ├── layout.templ           # Estructura base: HTML, head con Pico.css y menú lateral
+│   └── ...                    # Formulario, lista y página de cada sección
+│
+├── db/                        # Capa de datos
+│   ├── schema/schema.sql      # Definición de las tablas
+│   ├── queries/               # Consultas SQL para sqlc (un archivo por tabla)
+│   ├── *.go generados         # Código de sqlc (no se sube al repo)
+│   └── crud_test.go           # Tests de las consultas contra PostgreSQL
+│
+├── docker-compose.yaml        # Contenedor de PostgreSQL
+├── sqlc.yaml                  # Configuración de sqlc
+├── makefile                   # Automatización de tareas
+└── requests.bash              # Pruebas con curl de las páginas, formularios y reglas
 ```
 
-Validaciones: el nombre no puede estar vacío, el precio debe ser mayor a cero y el stock no puede ser negativo.
+---
 
-### Movimiento de stock
+## 7. Modelo de datos
+
+*   **Categoría (`categoria`):** nombre único y categoría padre opcional (`padre_id`), que arma la jerarquía.
+*   **Producto (`producto`):** nombre único, descripción opcional, precio, stock actual y categoría (`id_categoria`, obligatoria).
+*   **Movimiento de stock (`movimiento_stock`):** producto, tipo (`INGRESO` o `EGRESO`), cantidad, motivo y fecha.
+
+---
+
+## 8. Pruebas (opcional)
 
 ```bash
-curl -X POST http://localhost:8080/movimiento_stock \
-  -H "Content-Type: application/json" \
-  -d '{"producto_id": 1, "tipo": "INGRESO", "cantidad": 5, "motivo": "Compra a proveedor"}'
+make test
 ```
 
-Validaciones: el tipo debe ser `INGRESO` o `EGRESO` y la cantidad debe ser mayor a cero.
+Parte de una base limpia y realiza, en orden:
 
-### Errores
+1.  **Tareas previas:** genera el código, compila, recrea la base y levanta la aplicación.
+2.  **Pruebas:** corre los tests de Go de la capa de datos y luego `requests.bash`, que con `curl`:
+    *   verifica que cada página responde con HTML,
+    *   envía los formularios y comprueba la redirección `303` y que el dato aparece en la lista,
+    *   comprueba las reglas de negocio (categoría obligatoria, nombres repetidos, stock insuficiente, motivos válidos, movimientos que no se borran, etc.).
+3.  **Tareas posteriores:** apaga la aplicación y borra contenedores y volúmenes, aunque alguna prueba falle.
 
-Los errores de validación responden `400 Bad Request` y los registros inexistentes `404 Not Found`, con un mensaje descriptivo en el cuerpo de la respuesta (por ejemplo, `el precio debe ser mayor a cero`).
+Cada prueba se muestra como `[OK]` o `[FALLA]`, y al final se imprime un resumen (`Resultado: N pasaron, 0 fallaron`).
 
-El archivo `requests.bash` contiene ejemplos de todas las peticiones probadas, incluyendo los casos de error.
+También se puede correr `requests.bash` por separado, con la aplicación ya levantada (`make run`):
+
+```bash
+bash ./requests.bash
+```
