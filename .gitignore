@@ -9,3 +9,6 @@ db/*.sql.go
 tmp/
 Ctrlstock/
 ctrlstock
+
+# codigo generado por templ
+*_templ.go
